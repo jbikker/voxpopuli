@@ -338,7 +338,6 @@ void main()
 			glfwSwapBuffers( window );
 			glfwPollEvents();
 		}
-		app->Shutdown();
 		if (!running) break;
 	}
 #if 0
