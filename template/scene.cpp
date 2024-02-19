@@ -17,7 +17,13 @@ float3 Ray::GetNormal() const
 float3 Ray::GetAlbedo() const
 {
 	// return the (floating point) albedo at the nearest intersection
-	return float3( 1 ); // TODO: base color on voxel value.
+
+	//uint a = (voxel >> 24) & 255;
+	uint r = (voxel >> 16) & 255;
+	uint g = (voxel >> 8) & 255;
+	uint b = voxel & 255;
+
+	return float3(r, g, b) / 256.0f; // TODO: base color on voxel value.
 }
 
 Cube::Cube( const float3 pos, const float3 size )
@@ -69,7 +75,7 @@ Scene::Scene()
 			for (int x = 0; x < WORLDSIZE; x++, fx += 1.0f / WORLDSIZE)
 			{
 				const float n = noise3D( fx, fy, fz );
-				Set( x, y, z, n > 0.09f ? 0xffffff : 0 );
+				Set( x, y, z, n > 0.09f ? 0x675621 : 0 );
 			}
 		}
 	}

@@ -88,9 +88,9 @@ float3 Renderer::Trace( Ray& ray )
 	static const float3 L = normalize( float3( 1, 4, 0.5f ) );
 	float3 N = ray.GetNormal();
 	float3 albedo = ray.GetAlbedo();
-	/* visualize normal */ return (N + 1) * 0.5f;
+	/* visualize normal */ //return (N + 1) * 0.5f;
 	/* visualize distance */ // return float3( 1 / (1 + ray.t) );
-	/* visualize albedo */ // return albedo;
+	/* visualize albedo */  return albedo;
 }
 
 // -----------------------------------------------------------
