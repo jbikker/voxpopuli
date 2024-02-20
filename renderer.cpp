@@ -84,18 +84,25 @@ float3 Renderer::Trace( Ray& ray )
 {
 	scene.FindNearest( ray );
 	if (ray.voxel == 0) return float3(1); // or a fancy sky color
-    float3 I = ray.O + (ray.t - 0.001f) * ray.D;
+    float3 I = ray.O + (ray.t) * ray.D;
 	const float3 L = normalize( float3( 1, 4, 0.5f ) );
 	float3 N = ray.GetNormal();
 	float3 albedo = ray.GetAlbedo();
 
-	sun_pos.x = sinf(time * 0.001f) * 512.0f;
-    sun_pos.z = cosf(time * 0.001f) * 512.0f;
+	//sun_pos.x = sinf(time * 0.001f) * 512.0f;
+    //sun_pos.z = cosf(time * 0.001f) * 512.0f;
 
-	Ray shadow_ray = Ray(I, sun_pos - I);
+	float randomised_f = RandomFloat();
+
+	float x = 0.01f * cosf(randomised_f) * sinf(randomised_f);
+    float y = 0.01f * sinf(randomised_f) * sinf(randomised_f);
+    float z = 0.01f * cosf(randomised_f);
+	float3 new_sun = sun_pos + float3(x, y, z);
+
+	Ray shadow_ray = Ray(I, new_sun - I);
 
 	if (scene.IsOccluded(shadow_ray))
-        albedo = float3(0.0f, 0.0f, 0.0f);
+        albedo *= 0.25f;
 
 	/* visualize normal */ //return (N + 1) * 0.5f;
 	/* visualize distance */ // return float3( 1 / (1 + ray.t) );
@@ -108,6 +115,9 @@ float3 Renderer::Trace( Ray& ray )
 void Renderer::Tick( float deltaTime )
 {
     time += deltaTime;
+
+	if (IsKeyDown(GLFW_KEY_Q))
+        sun_pos = camera.camPos;
 
 	// pixel loop
 	Timer t;
@@ -140,9 +150,11 @@ void Renderer::Tick( float deltaTime )
 void Renderer::UI()
 {
 	// ray query on mouse
-	Ray r = camera.GetPrimaryRay( (float)mousePos.x, (float)mousePos.y );
+	/*Ray r = camera.GetPrimaryRay( (float)mousePos.x, (float)mousePos.y );
 	scene.FindNearest( r );
-	ImGui::Text( "voxel: %i", r.voxel );
+	ImGui::Text( "voxel: %i", r.voxel );*/
+
+	ImGui::SliderFloat3("sun pos: ", &sun_pos.x, 0.0f, 128.0f);
 }
 
 // -----------------------------------------------------------

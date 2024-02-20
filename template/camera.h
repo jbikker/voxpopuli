@@ -36,7 +36,7 @@ public:
 	bool HandleInput( const float t )
 	{
 		if (!WindowHasFocus()) return false;
-		float speed = 0.001f * t;
+		float speed = 0.0007f * t;
 		float3 ahead = normalize( camTarget - camPos );
 		float3 tmpUp( 0, 1, 0 );
 		float3 right = normalize( cross( tmpUp, ahead ) );
@@ -49,10 +49,10 @@ public:
 		if (IsKeyDown( GLFW_KEY_R )) camPos += speed * 2 * up, changed = true;
 		if (IsKeyDown( GLFW_KEY_F )) camPos -= speed * 2 * up, changed = true;
 		camTarget = camPos + ahead;
-		if (IsKeyDown( GLFW_KEY_UP )) camTarget -= speed * up, changed = true;
-		if (IsKeyDown( GLFW_KEY_DOWN )) camTarget += speed * up, changed = true;
-		if (IsKeyDown( GLFW_KEY_LEFT )) camTarget -= speed * right, changed = true;
-		if (IsKeyDown( GLFW_KEY_RIGHT )) camTarget += speed * right, changed = true;
+		if (IsKeyDown( GLFW_KEY_UP )) camTarget -= speed * 2 * up, changed = true;
+		if (IsKeyDown( GLFW_KEY_DOWN )) camTarget += speed * 2 * up, changed = true;
+		if (IsKeyDown( GLFW_KEY_LEFT )) camTarget -= speed * 2 * right, changed = true;
+		if (IsKeyDown( GLFW_KEY_RIGHT )) camTarget += speed * 2 * right, changed = true;
 		if (!changed) return false;
 		ahead = normalize( camTarget - camPos );
 		up = normalize( cross( ahead, right ) );
