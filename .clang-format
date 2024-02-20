@@ -1,0 +1,17 @@
+# Max <mxcop> ' clang-format
+# 09/10/2023
+
+BasedOnStyle: Microsoft
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 200
+
+DerivePointerAlignment: false
+PointerAlignment: Left
+ReferenceAlignment: Left
+
+AllowShortFunctionsOnASingleLine: InlineOnly
+
+# Includes
+SortIncludes: false

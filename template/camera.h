@@ -1,8 +1,8 @@
 #pragma once
 
 // default screen resolution
-#define SCRWIDTH	1920
-#define SCRHEIGHT	1080
+#define SCRWIDTH	1280
+#define SCRHEIGHT	720
 // #define FULLSCREEN
 // #define DOUBLESIZE
 
@@ -36,7 +36,7 @@ public:
 	bool HandleInput( const float t )
 	{
 		if (!WindowHasFocus()) return false;
-		float speed = 0.0025f * t;
+		float speed = 0.001f * t;
 		float3 ahead = normalize( camTarget - camPos );
 		float3 tmpUp( 0, 1, 0 );
 		float3 right = normalize( cross( tmpUp, ahead ) );

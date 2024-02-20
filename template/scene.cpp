@@ -75,7 +75,7 @@ Scene::Scene()
 			for (int x = 0; x < WORLDSIZE; x++, fx += 1.0f / WORLDSIZE)
 			{
 				const float n = noise3D( fx, fy, fz );
-				Set( x, y, z, n > 0.09f ? 0x675621 : 0 );
+                Set(x, y, z, n > 0.09f ? RandomUInt() : 0);
 			}
 		}
 	}

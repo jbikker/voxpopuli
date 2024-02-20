@@ -84,10 +84,19 @@ float3 Renderer::Trace( Ray& ray )
 {
 	scene.FindNearest( ray );
 	if (ray.voxel == 0) return float3(1); // or a fancy sky color
-	float3 I = ray.O + ray.t * ray.D;
-	static const float3 L = normalize( float3( 1, 4, 0.5f ) );
+    float3 I = ray.O + (ray.t - 0.001f) * ray.D;
+	const float3 L = normalize( float3( 1, 4, 0.5f ) );
 	float3 N = ray.GetNormal();
 	float3 albedo = ray.GetAlbedo();
+
+	sun_pos.x = sinf(time * 0.001f) * 512.0f;
+    sun_pos.z = cosf(time * 0.001f) * 512.0f;
+
+	Ray shadow_ray = Ray(I, sun_pos - I);
+
+	if (scene.IsOccluded(shadow_ray))
+        albedo = float3(0.0f, 0.0f, 0.0f);
+
 	/* visualize normal */ //return (N + 1) * 0.5f;
 	/* visualize distance */ // return float3( 1 / (1 + ray.t) );
 	/* visualize albedo */  return albedo;
@@ -98,6 +107,8 @@ float3 Renderer::Trace( Ray& ray )
 // -----------------------------------------------------------
 void Renderer::Tick( float deltaTime )
 {
+    time += deltaTime;
+
 	// pixel loop
 	Timer t;
 	// lines are executed as OpenMP parallel tasks (disabled in DEBUG)
