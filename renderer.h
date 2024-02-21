@@ -1,5 +1,7 @@
 #pragma once
 
+#include "light.h"
+
 namespace Tmpl8
 {
 
@@ -28,6 +30,7 @@ public:
 private:
     float3 sun_pos = float3(0.0f, 5.0f, 0.0f);
 	float time = 0.0f;
+    std::vector<Light> lights;
 };
 
 } // namespace Tmpl8

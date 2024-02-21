@@ -83,30 +83,55 @@ void Renderer::Init()
 float3 Renderer::Trace( Ray& ray )
 {
 	scene.FindNearest( ray );
-	if (ray.voxel == 0) return float3(1); // or a fancy sky color
-    float3 I = ray.O + (ray.t - 0.001f) * ray.D;
-	const float3 L = normalize( float3( 1, 4, 0.5f ) );
-	float3 N = ray.GetNormal();
-	float3 albedo = ray.GetAlbedo();
+	if (ray.voxel == 0) return float3(0); // or a fancy sky color
+    float3 I = ray.O + (ray.t - 0.00001f) * ray.D;
+    const float3 L = normalize(float3(1, 4, 0.5f));
+    float3 N = ray.GetNormal();
+    float3 albedo = /*ray.GetAlbedo()*/ float3(1.0f);
 
-	//sun_pos.x = sinf(time * 0.001f) * 512.0f;
-    //sun_pos.z = cosf(time * 0.001f) * 512.0f;
+	float3 final_color = float3(0);
 
-	float randomised_f = RandomFloat();
+	for (size_t i = 0; i < lights.size(); i++)
+	{
+        switch (lights[i].type)
+        {
+        case LightType::POINT:
+			//lights[i].pos.x = sinf(time * 0.001f) * 512.0f;
+            //lights[i].pos.z = cosf(time * 0.001f) * 512.0f;
+            {
+               /* float randomised_f = RandomFloat();
 
-	float x = 0.01f * cosf(randomised_f) * sinf(randomised_f);
-    float y = 0.01f * sinf(randomised_f) * sinf(randomised_f);
-    float z = 0.01f * cosf(randomised_f);
-	float3 new_sun = sun_pos + float3(x, y, z);
+                float x = 0.01f * cosf(randomised_f) * sinf(randomised_f);
+                float y = 0.01f * sinf(randomised_f) * sinf(randomised_f);
+                float z = 0.01f * cosf(randomised_f);
+                float3 new_pos = lights[i].pos + float3(x, y, z);*/
 
-	Ray shadow_ray = Ray(I, normalize(new_sun - I));
+				float3 s_ray_dir = normalize(lights[i].pos - I);
+				float angle = dot(N, s_ray_dir);
+                float dist = length(lights[i].pos - I);
+                float falloff = 1 / (dist * dist) - 0.25f;
 
-	if (scene.IsOccluded(shadow_ray))
-        albedo *= 0.25f;
+				if (angle <= 0)
+                    continue;
 
+                Ray shadow_ray = Ray(I, s_ray_dir);
+                if (!scene.IsOccluded(shadow_ray))
+                    final_color += albedo * lights[i].color * falloff * angle;
+            }
+            break;
+        case LightType::SPOT:
+            break;
+        case LightType::DIRECTIONAL:
+            break;
+        default:
+            break;
+        }
+	}
+
+	//Ray shadow_ray = Ray(I, normalize(sun_pos - I));
 	/* visualize normal */ //return (N + 1) * 0.5f;
 	/* visualize distance */ // return float3( 1 / (1 + ray.t) );
-	/* visualize albedo */  return albedo;
+	/* visualize albedo */  return final_color;
 }
 
 // -----------------------------------------------------------
@@ -117,7 +142,7 @@ void Renderer::Tick( float deltaTime )
     time += deltaTime;
 
 	if (IsKeyDown(GLFW_KEY_Q))
-        sun_pos = camera.camPos;
+        lights[0].pos = camera.camPos;
 
 	// pixel loop
 	Timer t;
@@ -153,8 +178,19 @@ void Renderer::UI()
 	/*Ray r = camera.GetPrimaryRay( (float)mousePos.x, (float)mousePos.y );
 	scene.FindNearest( r );
 	ImGui::Text( "voxel: %i", r.voxel );*/
-
-	ImGui::SliderFloat3("Sun Pos ", &sun_pos.x, 0.0f, 128.0f);
+    if (ImGui::Button("Add Point Light"))
+    {
+        lights.push_back(Light(LightType::POINT));
+    }
+    for (size_t i = 0; i < lights.size(); i++)
+    {
+        std::string name = "Point Light" + std::to_string(i);
+        if (ImGui::CollapsingHeader(name.c_str()))
+        {
+            ImGui::SliderFloat3("Pos", &lights[i].pos.x, 0.0f, 1.0f);
+            ImGui::ColorEdit3("Color", &lights[i].color.x, ImGuiColorEditFlags_Float);
+        }
+    }
 }
 
 // -----------------------------------------------------------

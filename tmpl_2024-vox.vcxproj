@@ -132,6 +132,7 @@
     <ClCompile Include="lib\imgui\imgui_impl_opengl3.cpp" />
     <ClCompile Include="lib\imgui\imgui_tables.cpp" />
     <ClCompile Include="lib\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="template\light.cpp" />
     <ClCompile Include="template\opencl.cpp" />
     <ClCompile Include="template\opengl.cpp" />
     <ClCompile Include="template\scene.cpp" />
@@ -155,6 +156,7 @@
     <ClInclude Include="lib\imgui\imstb_truetype.h" />
     <ClInclude Include="template\camera.h" />
     <ClInclude Include="template\common.h" />
+    <ClInclude Include="template\light.h" />
     <ClInclude Include="template\opencl.h" />
     <ClInclude Include="template\opengl.h" />
     <ClInclude Include="template\precomp.h" />
