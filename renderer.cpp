@@ -115,9 +115,10 @@ float3 Renderer::Trace( Ray& ray )
                     continue;
 
                 Ray shadow_ray = Ray(I, s_ray_dir);
-                if (!scene.IsOccluded(shadow_ray))
-                    final_color += albedo * lights[i].color * falloff * angle;
-            }
+                if (scene.IsOccluded(shadow_ray))
+                    continue;
+                final_color += albedo * lights[i].color * falloff * angle;    
+			}
             break;
         case LightType::SPOT:
             break;
@@ -189,6 +190,8 @@ void Renderer::UI()
         {
             ImGui::SliderFloat3("Pos", &lights[i].pos.x, 0.0f, 1.0f);
             ImGui::ColorEdit3("Color", &lights[i].color.x, ImGuiColorEditFlags_Float);
+            if (ImGui::SmallButton("Remove"))
+                lights.pop_back();
         }
     }
 }
