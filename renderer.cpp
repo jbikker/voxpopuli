@@ -84,7 +84,7 @@ float3 Renderer::Trace( Ray& ray )
 {
 	scene.FindNearest( ray );
 	if (ray.voxel == 0) return float3(1); // or a fancy sky color
-    float3 I = ray.O + (ray.t) * ray.D;
+    float3 I = ray.O + (ray.t - 0.001f) * ray.D;
 	const float3 L = normalize( float3( 1, 4, 0.5f ) );
 	float3 N = ray.GetNormal();
 	float3 albedo = ray.GetAlbedo();
@@ -99,7 +99,7 @@ float3 Renderer::Trace( Ray& ray )
     float z = 0.01f * cosf(randomised_f);
 	float3 new_sun = sun_pos + float3(x, y, z);
 
-	Ray shadow_ray = Ray(I, new_sun - I);
+	Ray shadow_ray = Ray(I, normalize(new_sun - I));
 
 	if (scene.IsOccluded(shadow_ray))
         albedo *= 0.25f;
@@ -154,7 +154,7 @@ void Renderer::UI()
 	scene.FindNearest( r );
 	ImGui::Text( "voxel: %i", r.voxel );*/
 
-	ImGui::SliderFloat3("sun pos: ", &sun_pos.x, 0.0f, 128.0f);
+	ImGui::SliderFloat3("Sun Pos ", &sun_pos.x, 0.0f, 128.0f);
 }
 
 // -----------------------------------------------------------
