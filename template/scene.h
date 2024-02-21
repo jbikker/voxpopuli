@@ -51,7 +51,7 @@ public:
 	float3 D = float3( 0 );		// ray direction
 	float t = 1e34f;			// ray length
 	float3 Dsign = float3( 1 );	// inverted ray direction signs, -1 or 1
-	uint voxel = 0;				// 32-bit ARGB color of a voxelhit object index; 0 = NONE
+	uint voxel = 0;				// payload of the intersected voxel
 private:
 	// min3 is used in normal reconstruction.
 	__inline static float3 min3( const float3& a, const float3& b )
@@ -87,7 +87,7 @@ public:
 	void FindNearest( Ray& ray ) const;
 	bool IsOccluded( const Ray& ray ) const;
 	void Set( const uint x, const uint y, const uint z, const uint v );
-	unsigned int* grid;
+	unsigned int* grid; // voxel payload is 'unsigned int', interpretation of the bits is free!
 	Cube cube;
 private:
 	bool Setup3DDDA( const Ray& ray, DDAState& state ) const;
