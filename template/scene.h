@@ -2,7 +2,7 @@
 
 // high level settings
 // #define TWOLEVEL
-#define WORLDSIZE	128 // power of 2. Warning: max 512 for a 512x512x512x4 bytes = 512MB world!
+#define WORLDSIZE 128 // power of 2. Warning: max 512 for a 512x512x512x4 bytes = 512MB world!
 // #define USE_SIMD
 // #define USE_FMA3
 // #define SKYDOME
