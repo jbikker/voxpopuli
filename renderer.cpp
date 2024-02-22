@@ -1,5 +1,6 @@
 #include "precomp.h"
 
+
 // YOU GET:
 // 1. A fast voxel renderer in plain C/C++
 // 2. Normals and voxel colors
@@ -75,6 +76,8 @@ void Renderer::Init()
         fread(&camera, 1, sizeof(Camera), f);
         fclose(f);
     }
+
+    skydome = Skydome();
 }
 
 // -----------------------------------------------------------
@@ -83,119 +86,125 @@ void Renderer::Init()
 float3 Renderer::Trace(Ray& ray)
 {
     scene.FindNearest(ray);
-    if (ray.voxel == 0)
-        return float3(0); // or a fancy sky color
+    //if (ray.voxel == 0)
+        //return float3(0); // or a fancy sky color
+
+    
+
     float3 I = ray.O + (ray.t - 0.00001f) * ray.D;
     const float3 L = normalize(float3(1, 4, 0.5f));
     float3 N = ray.GetNormal();
     float3 albedo = /*ray.GetAlbedo()*/ float3(1.0f);
 
-    float3 final_color = float3(0);
 
-    for (size_t i = 0; i < lights.size(); i++)
-    {
-        switch (lights[i].type)
-        {
-        case LightType::POINT:
-            // Rotation
-            // lights[i].pos.x = sinf(time * 0.001f) * 512.0f;
-            // lights[i].pos.z = cosf(time * 0.001f) * 512.0f;
-            {
-                // Soft Shadows
-                /* float randomised_f = RandomFloat();
 
-                 float x = 0.01f * cosf(randomised_f) * sinf(randomised_f);
-                 float y = 0.01f * sinf(randomised_f) * sinf(randomised_f);
-                 float z = 0.01f * cosf(randomised_f);
-                 float3 new_pos = lights[i].pos + float3(x, y, z);*/
+    float3 final_color = skydome.render(ray);
 
-                float3 s_ray_dir = lights[i].pos - I;
-                float angle = dot(N, normalize(s_ray_dir));
-                float dist = length(lights[i].pos - I);
-                float falloff = max(1 / (dist * dist) - 0.25f, 0.0f);
+    //for (size_t i = 0; i < lights.size(); i++)
+    //{
+    //    switch (lights[i].type)
+    //    {
+    //    case LightType::POINT:
+    //        // Rotation
+    //        // lights[i].pos.x = sinf(time * 0.001f) * 512.0f;
+    //        // lights[i].pos.z = cosf(time * 0.001f) * 512.0f;
+    //        {
+    //            // Soft Shadows
+    //            /* float randomised_f = RandomFloat();
 
-                if (angle <= 0)
-                    continue;
+    //             float x = 0.01f * cosf(randomised_f) * sinf(randomised_f);
+    //             float y = 0.01f * sinf(randomised_f) * sinf(randomised_f);
+    //             float z = 0.01f * cosf(randomised_f);
+    //             float3 new_pos = lights[i].pos + float3(x, y, z);*/
 
-                Ray shadow_ray = Ray(I, s_ray_dir);
-                if (scene.IsOccluded(shadow_ray))
-                    continue;
-                final_color += albedo * lights[i].color * falloff * angle;
-            }
-            break;
-        case LightType::DIRECTIONAL: 
-            {
-                float angle = dot(N, normalize(-lights[i].dir));
+    //            float3 s_ray_dir = lights[i].pos - I;
+    //            float angle = dot(N, normalize(s_ray_dir));
+    //            float dist = length(lights[i].pos - I);
+    //            float falloff = max(1 / (dist * dist) - 0.25f, 0.0f);
 
-                if (angle <= 0)
-                    continue;
+    //            if (angle <= 0)
+    //                continue;
 
-                Ray shadow_ray = Ray(I, -lights[i].dir);
-                if (scene.IsOccluded(shadow_ray))
-                    continue;
-                final_color += albedo * lights[i].color * angle;
-            }
-        break;
-            case LightType::SPOT: 
-            {
-                // Source: https://math.hws.edu/graphicsbook/c7/s2.html#webgl3d.2.6
-                // NOTE: Not very performant!!!
-                float spot_factor = 1.0f;
+    //            Ray shadow_ray = Ray(I, s_ray_dir);
+    //            if (scene.IsOccluded(shadow_ray))
+    //                continue;
+    //            final_color += albedo * lights[i].color * falloff * angle;
+    //        }
+    //        break;
+    //    case LightType::DIRECTIONAL: 
+    //        {
+    //            float angle = dot(N, normalize(-lights[i].dir));
 
-                float3 spot_dir = lights[i].dir;
-                float3 s_ray_dir = lights[i].pos - I;
+    //            if (angle <= 0)
+    //                continue;
 
-                float a = dot(N, normalize(s_ray_dir));
-                if (a <= 0)
-                    continue;
+    //            Ray shadow_ray = Ray(I, -lights[i].dir);
+    //            if (scene.IsOccluded(shadow_ray))
+    //                continue;
+    //            final_color += albedo * lights[i].color * angle;
+    //        }
+    //    break;
+    //        case LightType::SPOT: 
+    //        {
+    //            // Source: https://math.hws.edu/graphicsbook/c7/s2.html#webgl3d.2.6
+    //            // NOTE: Not very performant!!!
+    //            float spot_factor = 1.0f;
 
-                if (lights[i].cutoff_angle <= 0.0f)
-                    continue;
+    //            float3 spot_dir = lights[i].dir;
+    //            float3 s_ray_dir = lights[i].pos - I;
 
-                float angle = dot(normalize(spot_dir), normalize(s_ray_dir));
+    //            float a = dot(N, normalize(s_ray_dir));
+    //            if (a <= 0)
+    //                continue;
 
-                if (angle >= lights[i].cutoff_angle)
-                    spot_factor = powf(angle, lights[i].spot_exponent); 
-                else
-                    spot_factor = 0.0f;
+    //            if (lights[i].cutoff_angle <= 0.0f)
+    //                continue;
 
-                Ray shadow_ray = Ray(I, s_ray_dir);
-                if (scene.IsOccluded(shadow_ray))
-                    continue;
+    //            float angle = dot(normalize(spot_dir), normalize(s_ray_dir));
 
-                final_color += albedo * lights[i].color * spot_factor * angle * a;
-                
-                 //float3 spot_dir = lights[i].dir;
-                 //float3 s_ray_dir = lights[i].pos - I;
-                
-                 //float a = dot(N, normalize(s_ray_dir));
-                
-                 //if (a <= 0)
-                 //    continue;
-                
-                 //float angle = dot(normalize(-spot_dir), normalize(s_ray_dir));
-                
-                 //if (angle <= lights[i].inner_angle) // Outside
-                 //    continue;
-                
-                 //float spot_value = (angle - lights[i].inner_angle) / (lights[i].outer_angle - lights[i].inner_angle);
-                
-                 //Ray shadow_ray = Ray(I, s_ray_dir);
-                 //if (scene.IsOccluded(shadow_ray))
-                 //    continue;
-                
-                 //final_color += albedo * lights[i].color * spot_value * a;
-            }
-            break;
-        default:
-            break;
-        }
-    }
+    //            if (angle >= lights[i].cutoff_angle)
+    //                spot_factor = powf(angle, lights[i].spot_exponent); 
+    //            else
+    //                spot_factor = 0.0f;
 
-    // Ray shadow_ray = Ray(I, normalize(sun_pos - I));
-    /* visualize normal */   // return (N + 1) * 0.5f;
-    /* visualize distance */ // return float3( 1 / (1 + ray.t) );
-    /* visualize albedo */ return final_color;
+    //            Ray shadow_ray = Ray(I, s_ray_dir);
+    //            if (scene.IsOccluded(shadow_ray))
+    //                continue;
+
+    //            final_color += albedo * lights[i].color * spot_factor * angle * a;
+    //            
+    //             //float3 spot_dir = lights[i].dir;
+    //             //float3 s_ray_dir = lights[i].pos - I;
+    //            
+    //             //float a = dot(N, normalize(s_ray_dir));
+    //            
+    //             //if (a <= 0)
+    //             //    continue;
+    //            
+    //             //float angle = dot(normalize(-spot_dir), normalize(s_ray_dir));
+    //            
+    //             //if (angle <= lights[i].inner_angle) // Outside
+    //             //    continue;
+    //            
+    //             //float spot_value = (angle - lights[i].inner_angle) / (lights[i].outer_angle - lights[i].inner_angle);
+    //            
+    //             //Ray shadow_ray = Ray(I, s_ray_dir);
+    //             //if (scene.IsOccluded(shadow_ray))
+    //             //    continue;
+    //            
+    //             //final_color += albedo * lights[i].color * spot_value * a;
+    //        }
+    //        break;
+    //    default:
+    //        break;
+    //    }
+    //}
+
+    //// Ray shadow_ray = Ray(I, normalize(sun_pos - I));
+    ///* visualize normal */   // return (N + 1) * 0.5f;
+    ///* visualize distance */ // return float3( 1 / (1 + ray.t) );
+    ///* visualize albedo */ 
+    return final_color;
 }
 
 // -----------------------------------------------------------

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "light.h"
+#include "skydome/skydome.h"
 
 namespace Tmpl8
 {
@@ -31,6 +32,8 @@ private:
     float3 sun_pos = float3(0.0f, 5.0f, 0.0f);
 	float time = 0.0f;
     std::vector<Light> lights;
+    
+	Skydome skydome;
 };
 
 } // namespace Tmpl8

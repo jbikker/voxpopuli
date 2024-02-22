@@ -40,6 +40,7 @@
     </ClCompile>
     <ClCompile Include="template\tmpl8math.cpp" />
     <ClCompile Include="template\light.cpp" />
+    <ClCompile Include="template\skydome\skydome.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="renderer.h" />
@@ -93,6 +94,7 @@
     </ClInclude>
     <ClInclude Include="template\tmpl8math.h" />
     <ClInclude Include="template\light.h" />
+    <ClInclude Include="template\skydome\skydome.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="template">
