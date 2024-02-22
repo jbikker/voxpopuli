@@ -50,7 +50,7 @@
 //   - Reprojection for AO / soft shadows
 //   - Line lights, tube lights, ...
 //   - Bilinear interpolation and MIP-mapping
-// * Simple game:										
+// * Simple game:
 //   - 3D Arkanoid										<===
 //   - 3D Snake?
 //   - 3D Tank Wars for two players
@@ -65,109 +65,121 @@
 // -----------------------------------------------------------
 void Renderer::Init()
 {
-	// create fp32 rgb pixel buffer to render to
-	accumulator = (float4*)MALLOC64( SCRWIDTH * SCRHEIGHT * 16 );
-	memset( accumulator, 0, SCRWIDTH * SCRHEIGHT * 16 );
-	// try to load a camera
-	FILE* f = fopen( "camera.bin", "rb" );
-	if (f)
-	{
-		fread( &camera, 1, sizeof( Camera ), f );
-		fclose( f );
-	}
+    // create fp32 rgb pixel buffer to render to
+    accumulator = (float4*)MALLOC64(SCRWIDTH * SCRHEIGHT * 16);
+    memset(accumulator, 0, SCRWIDTH * SCRHEIGHT * 16);
+    // try to load a camera
+    FILE* f = fopen("camera.bin", "rb");
+    if (f)
+    {
+        fread(&camera, 1, sizeof(Camera), f);
+        fclose(f);
+    }
 }
 
 // -----------------------------------------------------------
 // Evaluate light transport
 // -----------------------------------------------------------
-float3 Renderer::Trace( Ray& ray )
+float3 Renderer::Trace(Ray& ray)
 {
-	scene.FindNearest( ray );
-	if (ray.voxel == 0) return float3(0); // or a fancy sky color
+    scene.FindNearest(ray);
+    if (ray.voxel == 0)
+        return float3(0); // or a fancy sky color
     float3 I = ray.O + (ray.t - 0.00001f) * ray.D;
     const float3 L = normalize(float3(1, 4, 0.5f));
     float3 N = ray.GetNormal();
     float3 albedo = /*ray.GetAlbedo()*/ float3(1.0f);
 
-	float3 final_color = float3(0);
+    float3 final_color = float3(0);
 
-	for (size_t i = 0; i < lights.size(); i++)
-	{
+    for (size_t i = 0; i < lights.size(); i++)
+    {
         switch (lights[i].type)
         {
         case LightType::POINT:
-			//lights[i].pos.x = sinf(time * 0.001f) * 512.0f;
-            //lights[i].pos.z = cosf(time * 0.001f) * 512.0f;
+            // lights[i].pos.x = sinf(time * 0.001f) * 512.0f;
+            // lights[i].pos.z = cosf(time * 0.001f) * 512.0f;
             {
-               /* float randomised_f = RandomFloat();
+                /* float randomised_f = RandomFloat();
 
-                float x = 0.01f * cosf(randomised_f) * sinf(randomised_f);
-                float y = 0.01f * sinf(randomised_f) * sinf(randomised_f);
-                float z = 0.01f * cosf(randomised_f);
-                float3 new_pos = lights[i].pos + float3(x, y, z);*/
+                 float x = 0.01f * cosf(randomised_f) * sinf(randomised_f);
+                 float y = 0.01f * sinf(randomised_f) * sinf(randomised_f);
+                 float z = 0.01f * cosf(randomised_f);
+                 float3 new_pos = lights[i].pos + float3(x, y, z);*/
 
-				float3 s_ray_dir = normalize(lights[i].pos - I);
-				float angle = dot(N, s_ray_dir);
+                float3 s_ray_dir = lights[i].pos - I;
+                float angle = dot(N, normalize(s_ray_dir));
                 float dist = length(lights[i].pos - I);
-                float falloff = 1 / (dist * dist) - 0.25f;
+                float falloff = max(1 / (dist * dist) - 0.25f, 0.0f);
 
-				if (angle <= 0)
+                if (angle <= 0)
                     continue;
 
                 Ray shadow_ray = Ray(I, s_ray_dir);
                 if (scene.IsOccluded(shadow_ray))
                     continue;
-                final_color += albedo * lights[i].color * falloff * angle;    
-			}
+                final_color += albedo * lights[i].color * falloff * angle;
+            }
             break;
+        case LightType::DIRECTIONAL: {
+            float angle = dot(N, -lights[i].dir);
+
+            if (angle <= 0)
+                continue;
+
+            Ray shadow_ray = Ray(I, -lights[i].dir);
+            if (scene.IsOccluded(shadow_ray))
+                continue;
+            final_color += albedo * lights[i].color * angle;
+        }
+        break;
         case LightType::SPOT:
-            break;
-        case LightType::DIRECTIONAL:
             break;
         default:
             break;
         }
-	}
+    }
 
-	//Ray shadow_ray = Ray(I, normalize(sun_pos - I));
-	/* visualize normal */ //return (N + 1) * 0.5f;
-	/* visualize distance */ // return float3( 1 / (1 + ray.t) );
-	/* visualize albedo */  return final_color;
+    // Ray shadow_ray = Ray(I, normalize(sun_pos - I));
+    /* visualize normal */   // return (N + 1) * 0.5f;
+    /* visualize distance */ // return float3( 1 / (1 + ray.t) );
+    /* visualize albedo */ return final_color;
 }
 
 // -----------------------------------------------------------
 // Main application tick function - Executed once per frame
 // -----------------------------------------------------------
-void Renderer::Tick( float deltaTime )
+void Renderer::Tick(float deltaTime)
 {
     time += deltaTime;
 
-	if (IsKeyDown(GLFW_KEY_Q))
+    if (IsKeyDown(GLFW_KEY_Q))
         lights[0].pos = camera.camPos;
 
-	// pixel loop
-	Timer t;
-	// lines are executed as OpenMP parallel tasks (disabled in DEBUG)
+    // pixel loop
+    Timer t;
+    // lines are executed as OpenMP parallel tasks (disabled in DEBUG)
 #pragma omp parallel for schedule(dynamic)
-	for (int y = 0; y < SCRHEIGHT; y++)
-	{
-		// trace a primary ray for each pixel on the line
-		for (int x = 0; x < SCRWIDTH; x++)
-		{
-			float4 pixel = float4( Trace( camera.GetPrimaryRay( (float)x, (float)y ) ), 0 );
-			// translate accumulator contents to rgb32 pixels
-			screen->pixels[x + y * SCRWIDTH] = RGBF32_to_RGB8( &pixel );
-			accumulator[x + y * SCRWIDTH] = pixel;
-		}
-	}
-	// performance report - running average - ms, MRays/s
-	static float avg = 10, alpha = 1;
-	avg = (1 - alpha) * avg + alpha * t.elapsed() * 1000;
-	if (alpha > 0.05f) alpha *= 0.5f;
-	float fps = 1000.0f / avg, rps = (SCRWIDTH * SCRHEIGHT) / avg;
-	printf( "%5.2fms (%.1ffps) - %.1fMrays/s\n", avg, fps, rps / 1000 );
-	// handle user input
-	camera.HandleInput( deltaTime );
+    for (int y = 0; y < SCRHEIGHT; y++)
+    {
+        // trace a primary ray for each pixel on the line
+        for (int x = 0; x < SCRWIDTH; x++)
+        {
+            float4 pixel = float4(Trace(camera.GetPrimaryRay((float)x, (float)y)), 0);
+            // translate accumulator contents to rgb32 pixels
+            screen->pixels[x + y * SCRWIDTH] = RGBF32_to_RGB8(&pixel);
+            accumulator[x + y * SCRWIDTH] = pixel;
+        }
+    }
+    // performance report - running average - ms, MRays/s
+    static float avg = 10, alpha = 1;
+    avg = (1 - alpha) * avg + alpha * t.elapsed() * 1000;
+    if (alpha > 0.05f)
+        alpha *= 0.5f;
+    float fps = 1000.0f / avg, rps = (SCRWIDTH * SCRHEIGHT) / avg;
+    printf("%5.2fms (%.1ffps) - %.1fMrays/s\n", avg, fps, rps / 1000);
+    // handle user input
+    camera.HandleInput(deltaTime);
 }
 
 // -----------------------------------------------------------
@@ -175,23 +187,51 @@ void Renderer::Tick( float deltaTime )
 // -----------------------------------------------------------
 void Renderer::UI()
 {
-	// ray query on mouse
-	/*Ray r = camera.GetPrimaryRay( (float)mousePos.x, (float)mousePos.y );
-	scene.FindNearest( r );
-	ImGui::Text( "voxel: %i", r.voxel );*/
+    // ray query on mouse
+    /*Ray r = camera.GetPrimaryRay( (float)mousePos.x, (float)mousePos.y );
+    scene.FindNearest( r );
+    ImGui::Text( "voxel: %i", r.voxel );*/
     if (ImGui::Button("Add Point Light"))
     {
         lights.push_back(Light(LightType::POINT));
     }
+    if (ImGui::Button("Add Directional Light"))
+    {
+        lights.push_back(Light(LightType::DIRECTIONAL));
+    }
+
     for (size_t i = 0; i < lights.size(); i++)
     {
-        std::string name = "Point Light" + std::to_string(i);
-        if (ImGui::CollapsingHeader(name.c_str()))
+        switch (lights[i].type)
         {
-            ImGui::SliderFloat3("Pos", &lights[i].pos.x, 0.0f, 1.0f);
-            ImGui::ColorEdit3("Color", &lights[i].color.x, ImGuiColorEditFlags_Float);
-            if (ImGui::SmallButton("Remove"))
-                lights.pop_back();
+        case LightType::POINT: 
+        {
+            std::string name = "Point Light " + std::to_string(i);
+            if (ImGui::CollapsingHeader(name.c_str()))
+            {
+                ImGui::SliderFloat3("Pos", &lights[i].pos.x, 0.0f, 1.0f);
+                ImGui::ColorEdit3("Color", &lights[i].color.x, ImGuiColorEditFlags_Float);
+                if (ImGui::SmallButton("Remove"))
+                    lights.erase(lights.begin() + i);
+            }
+        }
+        break;
+        case LightType::DIRECTIONAL: 
+        {
+            std::string name = "Directional Light " + std::to_string(i);
+            if (ImGui::CollapsingHeader(name.c_str()))
+            {
+                ImGui::SliderFloat3("Direction", &lights[i].dir.x, -1.0f, 1.0f);
+                ImGui::ColorEdit3("Color", &lights[i].color.x, ImGuiColorEditFlags_Float);
+                if (ImGui::SmallButton("Remove"))
+                    lights.erase(lights.begin() + i);
+            }
+        }
+            break;
+        case LightType::SPOT:
+            break;
+        default:
+            break;
         }
     }
 }
@@ -201,8 +241,8 @@ void Renderer::UI()
 // -----------------------------------------------------------
 void Renderer::Shutdown()
 {
-	// save current camera
-	FILE* f = fopen( "camera.bin", "wb" );
-	fwrite( &camera, 1, sizeof( Camera ), f );
-	fclose( f );
+    // save current camera
+    FILE* f = fopen("camera.bin", "wb");
+    fwrite(&camera, 1, sizeof(Camera), f);
+    fclose(f);
 }
