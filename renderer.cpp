@@ -97,9 +97,11 @@ float3 Renderer::Trace(Ray& ray)
         switch (lights[i].type)
         {
         case LightType::POINT:
+            // Rotation
             // lights[i].pos.x = sinf(time * 0.001f) * 512.0f;
             // lights[i].pos.z = cosf(time * 0.001f) * 512.0f;
             {
+                // Soft Shadows
                 /* float randomised_f = RandomFloat();
 
                  float x = 0.01f * cosf(randomised_f) * sinf(randomised_f);
@@ -121,19 +123,69 @@ float3 Renderer::Trace(Ray& ray)
                 final_color += albedo * lights[i].color * falloff * angle;
             }
             break;
-        case LightType::DIRECTIONAL: {
-            float angle = dot(N, -lights[i].dir);
+        case LightType::DIRECTIONAL: 
+            {
+                float angle = dot(N, normalize(-lights[i].dir));
 
-            if (angle <= 0)
-                continue;
+                if (angle <= 0)
+                    continue;
 
-            Ray shadow_ray = Ray(I, -lights[i].dir);
-            if (scene.IsOccluded(shadow_ray))
-                continue;
-            final_color += albedo * lights[i].color * angle;
-        }
+                Ray shadow_ray = Ray(I, -lights[i].dir);
+                if (scene.IsOccluded(shadow_ray))
+                    continue;
+                final_color += albedo * lights[i].color * angle;
+            }
         break;
-        case LightType::SPOT:
+            case LightType::SPOT: 
+            {
+                // Source: https://math.hws.edu/graphicsbook/c7/s2.html#webgl3d.2.6
+                // NOTE: Not very performant!!!
+                float spot_factor = 1.0f;
+
+                float3 spot_dir = lights[i].dir;
+                float3 s_ray_dir = lights[i].pos - I;
+
+                float a = dot(N, normalize(s_ray_dir));
+                if (a <= 0)
+                    continue;
+
+                if (lights[i].cutoff_angle <= 0.0f)
+                    continue;
+
+                float angle = dot(normalize(spot_dir), normalize(s_ray_dir));
+
+                if (angle >= lights[i].cutoff_angle)
+                    spot_factor = powf(angle, lights[i].spot_exponent); 
+                else
+                    spot_factor = 0.0f;
+
+                Ray shadow_ray = Ray(I, s_ray_dir);
+                if (scene.IsOccluded(shadow_ray))
+                    continue;
+
+                final_color += albedo * lights[i].color * spot_factor * angle * a;
+                
+                 //float3 spot_dir = lights[i].dir;
+                 //float3 s_ray_dir = lights[i].pos - I;
+                
+                 //float a = dot(N, normalize(s_ray_dir));
+                
+                 //if (a <= 0)
+                 //    continue;
+                
+                 //float angle = dot(normalize(-spot_dir), normalize(s_ray_dir));
+                
+                 //if (angle <= lights[i].inner_angle) // Outside
+                 //    continue;
+                
+                 //float spot_value = (angle - lights[i].inner_angle) / (lights[i].outer_angle - lights[i].inner_angle);
+                
+                 //Ray shadow_ray = Ray(I, s_ray_dir);
+                 //if (scene.IsOccluded(shadow_ray))
+                 //    continue;
+                
+                 //final_color += albedo * lights[i].color * spot_value * a;
+            }
             break;
         default:
             break;
@@ -199,36 +251,55 @@ void Renderer::UI()
     {
         lights.push_back(Light(LightType::DIRECTIONAL));
     }
+    if (ImGui::Button("Add Spotlight"))
+    {
+        lights.push_back(Light(LightType::SPOT));
+    }
 
     for (size_t i = 0; i < lights.size(); i++)
     {
         switch (lights[i].type)
         {
         case LightType::POINT: 
-        {
-            std::string name = "Point Light " + std::to_string(i);
-            if (ImGui::CollapsingHeader(name.c_str()))
             {
-                ImGui::SliderFloat3("Pos", &lights[i].pos.x, 0.0f, 1.0f);
-                ImGui::ColorEdit3("Color", &lights[i].color.x, ImGuiColorEditFlags_Float);
-                if (ImGui::SmallButton("Remove"))
-                    lights.erase(lights.begin() + i);
+                std::string name = "Point Light " + std::to_string(i);
+                if (ImGui::CollapsingHeader(name.c_str()))
+                {
+                    ImGui::SliderFloat3("Pos", &lights[i].pos.x, 0.0f, 1.0f);
+                    ImGui::ColorEdit3("Color", &lights[i].color.x, ImGuiColorEditFlags_Float);
+                    if (ImGui::SmallButton("Remove"))
+                        lights.erase(lights.begin() + i);
+                }
             }
-        }
         break;
         case LightType::DIRECTIONAL: 
-        {
-            std::string name = "Directional Light " + std::to_string(i);
-            if (ImGui::CollapsingHeader(name.c_str()))
             {
-                ImGui::SliderFloat3("Direction", &lights[i].dir.x, -1.0f, 1.0f);
-                ImGui::ColorEdit3("Color", &lights[i].color.x, ImGuiColorEditFlags_Float);
-                if (ImGui::SmallButton("Remove"))
-                    lights.erase(lights.begin() + i);
+                std::string name = "Directional Light " + std::to_string(i);
+                if (ImGui::CollapsingHeader(name.c_str()))
+                {
+                    ImGui::SliderFloat3("Direction", &lights[i].dir.x, -1.0f, 1.0f);
+                    ImGui::ColorEdit3("Color", &lights[i].color.x, ImGuiColorEditFlags_Float);
+                    if (ImGui::SmallButton("Remove"))
+                        lights.erase(lights.begin() + i);
+                }
             }
-        }
             break;
-        case LightType::SPOT:
+        case LightType::SPOT: 
+            {
+                std::string name = "Spotlight " + std::to_string(i);
+                if (ImGui::CollapsingHeader(name.c_str()))
+                {
+                    ImGui::SliderFloat3("Direction", &lights[i].dir.x, -1.0f, 1.0f);
+                    ImGui::SliderFloat3("Pos", &lights[i].pos.x, 0.0f, 1.0f);
+                    /*ImGui::SliderFloat("Inner Angle", &lights[i].inner_angle, 0.0f, 1.0f);
+                    ImGui::SliderFloat("Outer Angle", &lights[i].outer_angle, 1.0f, 2.0f);*/
+                    ImGui::SliderFloat("Cutoff Angle", &lights[i].cutoff_angle, 0.0f, 1.0f);
+                    ImGui::SliderFloat("Spot Exponent", &lights[i].spot_exponent, 0.0f, 100.0f);
+                    ImGui::ColorEdit3("Color", &lights[i].color.x, ImGuiColorEditFlags_Float);
+                    if (ImGui::SmallButton("Remove"))
+                        lights.erase(lights.begin() + i);
+                }
+            }
             break;
         default:
             break;
