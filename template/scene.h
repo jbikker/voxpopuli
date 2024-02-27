@@ -27,6 +27,21 @@
 
 namespace Tmpl8 {
 
+struct VoxelData
+{
+    float3 color;
+    enum class MaterialType
+    {
+        DIFFUSE,
+        REFLECTIVE
+    };
+    struct Texture
+    {
+        uint8_t* data;
+        int width, height, channels;
+    } texture;
+};
+
 class Ray
 {
 public:
@@ -41,7 +56,9 @@ public:
 	}
 	float3 IntersectionPoint() const { return O + t * D; }
 	float3 GetNormal() const;
-	float3 GetAlbedo() const;
+    float3 GetAlbedo(VoxelData* voxel_data) const;
+    float2 GetUV() const;
+	
 	float GetReflectivity( const float3& I ) const; // TODO: implement
 	float GetRefractivity( const float3& I ) const; // TODO: implement
 	float3 GetAbsorption( const float3& I ) const; // TODO: implement
@@ -51,8 +68,10 @@ public:
 	float3 D = float3( 0 );		// ray direction
 	float t = 1e34f;			// ray length
 	float3 Dsign = float3( 1 );	// inverted ray direction signs, -1 or 1
-	uint voxel = 0;				// payload of the intersected voxel
-private:
+	uint8_t voxel = 0;			// Voxel ID
+    int depth = 0;
+
+  private:
 	// min3 is used in normal reconstruction.
 	__inline static float3 min3( const float3& a, const float3& b )
 	{
@@ -83,13 +102,18 @@ public:
 		float3 tmax;
 		float dummy2 = 0;		// 16 bytes, 64 bytes in total
 	};
+	
 	Scene();
 	void FindNearest( Ray& ray ) const;
 	bool IsOccluded( const Ray& ray ) const;
-	void Set( const uint x, const uint y, const uint z, const uint v );
-	unsigned int* grid; // voxel payload is 'unsigned int', interpretation of the bits is free!
+    void Set(const uint x, const uint y, const uint z, const uint8_t v);
+	uint8_t* grid;
 	Cube cube;
-private:
+    bool has_changed = false;
+
+	VoxelData voxel_data[256];
+
+  private:
 	bool Setup3DDDA( const Ray& ray, DDAState& state ) const;
 };
 

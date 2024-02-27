@@ -1,5 +1,6 @@
 #include "precomp.h"
 
+constexpr int PIXEL_SAMPLES = 8;
 
 // YOU GET:
 // 1. A fast voxel renderer in plain C/C++
@@ -66,6 +67,8 @@
 // -----------------------------------------------------------
 void Renderer::Init()
 {
+    frames = 0;
+
     // create fp32 rgb pixel buffer to render to
     accumulator = (float4*)MALLOC64(SCRWIDTH * SCRHEIGHT * 16);
     memset(accumulator, 0, SCRWIDTH * SCRHEIGHT * 16);
@@ -92,9 +95,25 @@ float3 Renderer::Trace(Ray& ray)
     float3 I = ray.O + (ray.t - 0.00001f) * ray.D;
     const float3 L = normalize(float3(1, 4, 0.5f));
     float3 N = ray.GetNormal();
-    float3 albedo = /*ray.GetAlbedo()*/ float3(1.0f);
+    float3 albedo = ray.GetAlbedo(scene.voxel_data) /*float3(1.0f)*/;
 
     float3 final_color = float3(0);
+
+    // Convert u, v to texture coordinates
+    VoxelData::Texture tex = scene.voxel_data[ray.voxel].texture;
+    float2 uv = ray.GetUV();
+    int texelX = uv.x * (tex.width);
+    int texelY = uv.y * (tex.height);
+
+    // Calculate index into texture data
+    int index = (texelY * tex.width + texelX) * tex.channels;
+
+    // Extract color channels from texture data
+    uint8_t r = tex.data[index];
+    uint8_t g = tex.data[index + 1];
+    uint8_t b = tex.data[index + 2];
+
+    albedo = float3(r, g, b) / 255.0f;
 
     for (size_t i = 0; i < lights.size(); i++)
     {
@@ -139,8 +158,8 @@ float3 Renderer::Trace(Ray& ray)
                     continue;
                 final_color += albedo * lights[i].color * angle;
             }
-        break;
-            case LightType::SPOT: 
+            break;
+        case LightType::SPOT: 
             {
                 // Source: https://math.hws.edu/graphicsbook/c7/s2.html#webgl3d.2.6
                 // NOTE: Not very performant!!!
@@ -196,11 +215,22 @@ float3 Renderer::Trace(Ray& ray)
         }
     }
 
+    // Reflections (Source: https://jacco.ompf2.com/2022/05/27/how-to-build-a-bvh-part-8-whitted-style/)
+    /*float3 sec_D = ray.D - 2 * N * dot(N, ray.D);
+    float3 sec_O = I + N * 0.001f;
+    
+    Ray secondary = Ray(sec_O, sec_D);
+    secondary.depth = ray.depth + 1;
+
+    if (secondary.depth >= 20)
+        return float3(0.0f);
+    return Trace(secondary);*/
+
     // Ray shadow_ray = Ray(I, normalize(sun_pos - I));
     /* visualize normal */   // return (N + 1) * 0.5f;
     /* visualize distance */ // return float3( 1 / (1 + ray.t) );
     /* visualize albedo */ 
-    return final_color;
+    return albedo;
 }
 
 // -----------------------------------------------------------
@@ -213,6 +243,11 @@ void Renderer::Tick(float deltaTime)
     if (IsKeyDown(GLFW_KEY_Q))
         lights[0].pos = camera.camPos;
 
+    if (scene.has_changed)
+    {
+        frames = 1;
+    }
+
     // pixel loop
     Timer t;
     // lines are executed as OpenMP parallel tasks (disabled in DEBUG)
@@ -222,12 +257,33 @@ void Renderer::Tick(float deltaTime)
         // trace a primary ray for each pixel on the line
         for (int x = 0; x < SCRWIDTH; x++)
         {
-            float4 pixel = float4(Trace(camera.GetPrimaryRay((float)x, (float)y)), 0);
-            // translate accumulator contents to rgb32 pixels
-            screen->pixels[x + y * SCRWIDTH] = RGBF32_to_RGB8(&pixel);
-            accumulator[x + y * SCRWIDTH] = pixel;
+            // Generate Random Offsets Within Each Pixel
+            float x_offset = Rand(1.0f) - 0.5f;
+            float y_offset = Rand(1.0f) - 0.5f;
+
+            // Calculate Sample Position Within The Pixel
+            float sample_x = (float)x + 0.5f + x_offset;
+            float sample_y = (float)y + 0.5f + y_offset;
+
+            float4 p = float4(Trace(camera.GetPrimaryRay(sample_x, sample_y)), 0);
+            
+            if (scene.has_changed)
+                accumulator[x + y * SCRWIDTH] = p;
+            else
+                accumulator[x + y * SCRWIDTH] += p;
+            
+            screen->pixels[x + y * SCRWIDTH] = RGBF32_to_RGB8(&(accumulator[x + y * SCRWIDTH] / float(frames)));
+
+            //float4 pixel = float4(Trace(camera.GetPrimaryRay((float)x, (float)y)), 0);
+            //// translate accumulator contents to rgb32 pixels
+            //screen->pixels[x + y * SCRWIDTH] = RGBF32_to_RGB8(&pixel);
+            //accumulator[x + y * SCRWIDTH] = pixel;
         }
     }
+
+    if (scene.has_changed)
+        scene.has_changed = false;
+
     // performance report - running average - ms, MRays/s
     static float avg = 10, alpha = 1;
     avg = (1 - alpha) * avg + alpha * t.elapsed() * 1000;
@@ -236,7 +292,10 @@ void Renderer::Tick(float deltaTime)
     float fps = 1000.0f / avg, rps = (SCRWIDTH * SCRHEIGHT) / avg;
     printf("%5.2fms (%.1ffps) - %.1fMrays/s\n", avg, fps, rps / 1000);
     // handle user input
-    camera.HandleInput(deltaTime);
+    if (camera.HandleInput(deltaTime))
+        scene.has_changed = true;
+
+    frames++;
 }
 
 // -----------------------------------------------------------
@@ -251,14 +310,17 @@ void Renderer::UI()
     if (ImGui::Button("Add Point Light"))
     {
         lights.push_back(Light(LightType::POINT));
+        scene.has_changed = true;
     }
     if (ImGui::Button("Add Directional Light"))
     {
         lights.push_back(Light(LightType::DIRECTIONAL));
+        scene.has_changed = true;
     }
     if (ImGui::Button("Add Spotlight"))
     {
         lights.push_back(Light(LightType::SPOT));
+        scene.has_changed = true;
     }
 
     for (size_t i = 0; i < lights.size(); i++)

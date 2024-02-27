@@ -1,4 +1,7 @@
 #include "precomp.h"
+#include <stb_image.h>
+
+static float3 uint_to_rgb(uint value);
 
 float3 Ray::GetNormal() const
 {
@@ -14,16 +17,46 @@ float3 Ray::GetNormal() const
 	// - This function might benefit from SIMD.
 }
 
-float3 Ray::GetAlbedo() const
+float3 Ray::GetAlbedo(VoxelData* voxel_data) const
 {
 	// return the (floating point) albedo at the nearest intersection
+	return voxel_data[voxel].color;
+}
 
-	//uint a = (voxel >> 24) & 255;
-	uint r = (voxel >> 16) & 255;
-	uint g = (voxel >> 8) & 255;
-	uint b = voxel & 255;
+float2 Ray::GetUV() const // Source: Milan
+{
+    float3 N = GetNormal();
+    float3 I = O + t * D;
 
-	return float3(r, g, b) / 256.0f; // TODO: base color on voxel value.
+    float u = 0.0f, v = 0.0f;
+    if (N.y != 0)
+    {
+        float xSteps = I.x * WORLDSIZE;
+        float zSteps = I.z * WORLDSIZE;
+
+        u = xSteps - floor(xSteps);
+        v = zSteps - floor(zSteps);
+    }
+    else if (N.z != 0)
+    {
+        float xSteps = I.x * WORLDSIZE;
+        float ySteps = I.y * WORLDSIZE;
+
+        u = xSteps - floor(xSteps);
+        v = ySteps - floor(ySteps);
+        v = 1 - v;
+    }
+    else if (N.x != 0)
+    {
+        float zSteps = I.z * WORLDSIZE;
+        float ySteps = I.y * WORLDSIZE;
+
+        u = zSteps - floor(zSteps);
+        v = ySteps - floor(ySteps);
+        v = 1 - v;
+    }
+
+    return float2(u, v);
 }
 
 Cube::Cube( const float3 pos, const float3 size )
@@ -60,11 +93,23 @@ bool Cube::Contains( const float3& pos ) const
 
 Scene::Scene()
 {
+    int x, y, channels;
+    uint8_t* texture = stbi_load("assets/blue.png", &x, &y, &channels, 0);
+
+	for (int i = 0; i < 256; i++)
+    {
+        voxel_data[i].color = uint_to_rgb(RandomUInt());
+        voxel_data[i].texture.data = texture;
+        voxel_data[i].texture.width = x;
+        voxel_data[i].texture.height = y;
+        voxel_data[i].texture.channels = channels;
+    }
+
 	// the voxel world sits in a 1x1x1 cube
 	cube = Cube( float3( 0, 0, 0 ), float3( 1, 1, 1 ) );
 	// initialize the scene using Perlin noise, parallel over z
-	grid = (uint*)MALLOC64( GRIDSIZE3 * sizeof( uint ) );
-	memset( grid, 0, GRIDSIZE3 * sizeof( uint ) );
+	grid = (uint8_t*)MALLOC64( GRIDSIZE3 * sizeof( uint8_t ) );
+	memset( grid, 0, GRIDSIZE3 * sizeof( uint8_t ) );
 	for (int z = 0; z < WORLDSIZE; z++)
 	{
 		const float fz = (float)z / WORLDSIZE;
@@ -81,7 +126,15 @@ Scene::Scene()
 	}
 }
 
-void Scene::Set( const uint x, const uint y, const uint z, const uint v )
+static float3 uint_to_rgb(uint value)
+{
+    uint r = (value >> 16) & 255;
+    uint g = (value >> 8) & 255;
+    uint b = value & 255;
+    return float3(r, g, b) / 256.0f;
+}
+
+void Scene::Set( const uint x, const uint y, const uint z, const uint8_t v )
 {
 	grid[x + y * GRIDSIZE + z * GRIDSIZE2] = v;
 }
@@ -116,11 +169,11 @@ void Scene::FindNearest( Ray& ray ) const
 	// start stepping
 	while (1)
 	{
-		const uint cell = grid[s.X + s.Y * GRIDSIZE + s.Z * GRIDSIZE2];
+        const uint8_t cell = grid[s.X + s.Y * GRIDSIZE + s.Z * GRIDSIZE2];
 		if (cell)
 		{
 			ray.t = s.t;
-			ray.voxel = cell;
+            ray.voxel = cell;
 			break;
 		}
 		if (s.tmax.x < s.tmax.y)
