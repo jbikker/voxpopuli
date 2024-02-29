@@ -122,6 +122,7 @@ Scene::Scene()
         memset(grids[i], 0, grid_size);
     }
 
+    #pragma omp parallel for schedule(dynamic)
     for (int z = 0; z < WORLDSIZE; z++)
     {
         const float fz = (float)z / WORLDSIZE;
@@ -132,14 +133,17 @@ Scene::Scene()
             for (int x = 0; x < WORLDSIZE; x++, fx += 1.0f / WORLDSIZE)
             {
                 const float n = noise3D(fx, fy, fz);
-                // Set(x, y, z, n > 0.09f ? RandomUInt() : 0);
 
                 if (n > 0.09f)
                 {
                     for (size_t i = 0; i < GRIDLAYERS; i++)
                     {
                         uint8_t b = (1 << i);
-                        grids[i][morton_encode(floor(x / b), floor(y / b), floor(z / b))] = 1;
+                        #if __BMI2__
+                            grids[i][morton_encode(floor(x / b), floor(y / b), floor(z / b))] = 1;
+                        #else
+                            grids[i][(x / b) + (y / b) * (GRIDSIZE / b) + (z / b) * (GRIDSIZE / b) * (GRIDSIZE / b)] = 1;
+                        #endif
                     }
                 }
             }
@@ -197,13 +201,18 @@ void Scene::FindNearest(Ray& ray, const int layer) const
     while (1)
     {
         ray.steps++;
-        const uint cell = grids[layer - 1][morton_encode(s.X, s.Y, s.Z)];
+        #if __BMI2__
+            const uint cell = grids[layer - 1][morton_encode(s.X, s.Y, s.Z)];
+        #else
+            const uint cell = grids[layer - 1][s.X + s.Y * grid_size + s.Z * grid_size * grid_size];
+        #endif
+       
         if (cell)
         {
             ray.t = s.t;
             ray.I = ray.O + ray.t * ray.D;
 
-            if (layer != 1)
+            if (layer > 1)
             {
                 Ray new_ray(ray.I, ray.D);
                 FindNearest(new_ray, layer - 1);
