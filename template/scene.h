@@ -53,7 +53,12 @@ public:
 		// calculate reciprocal ray direction for triangles and AABBs
 		// TODO: prevent NaNs - or don't
 		rD = float3( 1 / D.x, 1 / D.y, 1 / D.z );
-		Dsign = (float3( -copysign( 1.0f, D.x ), -copysign( 1.0f, D.y ), -copysign( 1.0f, D.z ) ) + 1) * 0.5f;
+
+        uint xsign = *(uint*)&D.x >> 31;
+        uint ysign = *(uint*)&D.y >> 31;
+        uint zsign = *(uint*)&D.z >> 31;
+
+		Dsign = (float3((float)xsign * 2.0f - 1.0f, (float)ysign * 2.0f - 1.0f, (float)zsign * 2.0f - 1.0f) + 1) * 0.5f;
 	}
 	float3 IntersectionPoint() const { return O + t * D; }
 	float3 GetNormal() const;
