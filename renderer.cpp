@@ -88,7 +88,11 @@ void Renderer::Init()
 // -----------------------------------------------------------
 float3 Renderer::Trace(Ray& ray)
 {
-    scene.FindNearest(ray);
+    ray.t = 0.0f;
+    scene.FindNearest(ray, GRIDLAYERS);
+
+    return ray.steps / 64.0f;
+
     if (ray.voxel == 0)
         return skydome.render(ray); // or a fancy sky color
 
@@ -97,23 +101,23 @@ float3 Renderer::Trace(Ray& ray)
     float3 N = ray.GetNormal();
     float3 albedo = ray.GetAlbedo(scene.voxel_data) /*float3(1.0f)*/;
 
-    float3 final_color = float3(0);
+    float3 final_color = N;
 
-    // Convert u, v to texture coordinates
-    VoxelData::Texture tex = scene.voxel_data[ray.voxel].texture;
-    float2 uv = ray.GetUV();
-    int texelX = uv.x * (tex.width);
-    int texelY = uv.y * (tex.height);
+    //// Convert u, v to texture coordinates
+    //VoxelData::Texture tex = scene.voxel_data[ray.voxel].texture;
+    //float2 uv = ray.GetUV();
+    //int texelX = uv.x * (tex.width);
+    //int texelY = uv.y * (tex.height);
 
-    // Calculate index into texture data
-    int index = (texelY * tex.width + texelX) * tex.channels;
+    //// Calculate index into texture data
+    //int index = (texelY * tex.width + texelX) * tex.channels;
 
-    // Extract color channels from texture data
-    uint8_t r = tex.data[index];
-    uint8_t g = tex.data[index + 1];
-    uint8_t b = tex.data[index + 2];
+    //// Extract color channels from texture data
+    //uint8_t r = tex.data[index];
+    //uint8_t g = tex.data[index + 1];
+    //uint8_t b = tex.data[index + 2];
 
-    albedo = float3(r, g, b) / 255.0f;
+    //albedo = float3(r, g, b) / 255.0f;
 
     for (size_t i = 0; i < lights.size(); i++)
     {
@@ -230,7 +234,7 @@ float3 Renderer::Trace(Ray& ray)
     /* visualize normal */   // return (N + 1) * 0.5f;
     /* visualize distance */ // return float3( 1 / (1 + ray.t) );
     /* visualize albedo */ 
-    return albedo;
+    return final_color;
 }
 
 // -----------------------------------------------------------

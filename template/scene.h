@@ -11,6 +11,7 @@
 
 // low-level / derived
 #define WORLDSIZE2	(WORLDSIZE*WORLDSIZE)
+#define GRIDLAYERS 5
 #ifdef TWOLEVEL
 // feel free to replace with whatever suits your two-level implementation,
 // should you chose this challenge.
@@ -66,10 +67,12 @@ public:
 	float3 O;					// ray origin
 	float3 rD;					// reciprocal ray direction
 	float3 D = float3( 0 );		// ray direction
+    float3 I;
 	float t = 1e34f;			// ray length
 	float3 Dsign = float3( 1 );	// inverted ray direction signs, -1 or 1
 	uint8_t voxel = 0;			// Voxel ID
     int depth = 0;
+    int steps = 0;
 
   private:
 	// min3 is used in normal reconstruction.
@@ -98,16 +101,17 @@ public:
 		uint X, Y, Z;			// 12 bytes
 		float t;				// 4 bytes
 		float3 tdelta;
-		float dummy1 = 0;		// 16 bytes
+		int scale = 0;		// 16 bytes
 		float3 tmax;
 		float dummy2 = 0;		// 16 bytes, 64 bytes in total
 	};
 	
 	Scene();
-	void FindNearest( Ray& ray ) const;
+    void FindNearest( Ray& ray, const int layer ) const;
 	bool IsOccluded( const Ray& ray ) const;
     void Set(const uint x, const uint y, const uint z, const uint8_t v);
 	uint8_t* grid;
+    uint8_t* grids[GRIDLAYERS];
 	Cube cube;
     bool has_changed = false;
 

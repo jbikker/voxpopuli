@@ -141,6 +141,26 @@ using namespace Tmpl8;
 // global keystate array access
 bool IsKeyDown( const uint key );
 
+// Credit Max Coppen for morton ordering
+
+// 3D Morton BMI masks /
+constexpr uint64_t BMI_3D_X_MASK = 0x9249249249249249;
+constexpr uint64_t BMI_3D_Y_MASK = 0x2492492492492492;
+constexpr uint64_t BMI_3D_Z_MASK = 0x4924924924924924;
+
+// 3D coordinate to morton code. /
+inline uint64_t morton_encode(const uint32_t x, const uint32_t y, const uint32_t z) {
+    return _pdep_u64(x, BMI_3D_X_MASK) | _pdep_u64(y, BMI_3D_Y_MASK) | _pdep_u64(z, BMI_3D_Z_MASK);
+}
+
+// Morton code to 3D coordinate. 
+inline void morton_decode(const uint64_t m, uint32_t& x, uint32_t& y, uint32_t& z)
+{
+    x = (uint32_t)(_pext_u64(m, BMI_3D_X_MASK));
+    y = (uint32_t)(_pext_u64(m, BMI_3D_Y_MASK));
+    z = (uint32_t)(_pext_u64(m, BMI_3D_Z_MASK));
+}
+
 // timer
 struct Timer
 {
