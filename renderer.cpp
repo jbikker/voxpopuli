@@ -1,67 +1,5 @@
 #include "precomp.h"
 
-constexpr int PIXEL_SAMPLES = 8;
-
-// YOU GET:
-// 1. A fast voxel renderer in plain C/C++
-// 2. Normals and voxel colors
-// FROM HERE, TASKS COULD BE:							FOR SUFFICIENT
-// * Materials:
-//   - Reflections and diffuse reflections				<===
-//   - Transmission with Snell, Fresnel					<===
-//   - Textures, Minecraft-style						<===
-//   - Beer's Law
-//   - Normal maps
-//   - Emissive materials with postproc bloom
-//   - Glossy reflections (BASIC)
-//   - Glossy reflections (microfacet)
-// * Light transport:
-//   - Point lights										<===
-//   - Spot lights										<===
-//   - Area lights										<===
-//	 - Sampling multiple lights with 1 ray
-//   - Importance-sampling
-//   - Image based lighting: sky
-// * Camera:
-//   - Depth of field									<===
-//   - Anti-aliasing									<===
-//   - Panini, fish-eye etc.
-//   - Post-processing: now also chromatic				<===
-//   - Spline cam, follow cam, fixed look-at cam
-//   - Low-res cam with CRT shader
-// * Scene:
-//   - HDR skydome										<===
-//   - Spheres											<===
-//   - Smoke & trilinear interpolation
-//   - Signed Distance Fields
-//   - Voxel instances with transform
-//   - Triangle meshes (with a BVH)
-//   - High-res: nested grid
-//   - Procedural art: shapes & colors
-//   - Multi-threaded Perlin / Voronoi
-// * Various:
-//   - Object picking
-//   - Ray-traced physics
-//   - Profiling & optimization
-// * GPU:
-//   - GPU-side Perlin / Voronoi
-//   - GPU rendering *not* allowed!
-// * Advanced:
-//   - Ambient occlusion
-//   - Denoising for soft shadows
-//   - Reprojection for AO / soft shadows
-//   - Line lights, tube lights, ...
-//   - Bilinear interpolation and MIP-mapping
-// * Simple game:
-//   - 3D Arkanoid										<===
-//   - 3D Snake?
-//   - 3D Tank Wars for two players
-//   - Chess
-// REFERENCE IMAGES:
-// https://www.rockpapershotgun.com/minecraft-ray-tracing
-// https://assetsio.reedpopcdn.com/javaw_2019_04_20_23_52_16_879.png
-// https://www.pcworld.com/wp-content/uploads/2023/04/618525e8fa47b149230.56951356-imagination-island-1-on-100838323-orig.jpg
-
 // -----------------------------------------------------------
 // Initialize the renderer
 // -----------------------------------------------------------
@@ -83,6 +21,8 @@ void Renderer::Init()
     skydome = Skydome();
 }
 
+float roughness = 0.3f;
+
 // -----------------------------------------------------------
 // Evaluate light transport
 // -----------------------------------------------------------
@@ -91,7 +31,7 @@ float3 Renderer::Trace(Ray& ray)
     ray.t = 0.0f;
     scene.FindNearest(ray, GRIDLAYERS);
 
-    return ray.steps / 64.0f;
+   // return ray.steps / 64.0f;
 
     if (ray.voxel == 0)
         return skydome.render(ray); // or a fancy sky color
@@ -101,7 +41,7 @@ float3 Renderer::Trace(Ray& ray)
     float3 N = ray.GetNormal();
     float3 albedo = ray.GetAlbedo(scene.voxel_data) /*float3(1.0f)*/;
 
-    float3 final_color = N;
+    float3 final_color = 0.0f;
 
     //// Convert u, v to texture coordinates
     //VoxelData::Texture tex = scene.voxel_data[ray.voxel].texture;
@@ -124,28 +64,21 @@ float3 Renderer::Trace(Ray& ray)
         switch (lights[i].type)
         {
         case LightType::POINT:
-            // Rotation
-            // lights[i].pos.x = sinf(time * 0.001f) * 512.0f;
-            // lights[i].pos.z = cosf(time * 0.001f) * 512.0f;
             {
-                // Soft Shadows
-                /* float randomised_f = RandomFloat();
-
-                 float x = 0.01f * cosf(randomised_f) * sinf(randomised_f);
-                 float y = 0.01f * sinf(randomised_f) * sinf(randomised_f);
-                 float z = 0.01f * cosf(randomised_f);
-                 float3 new_pos = lights[i].pos + float3(x, y, z);*/
-
-                float3 s_ray_dir = lights[i].pos - I;
-                float angle = dot(N, normalize(s_ray_dir));
-                float dist = length(lights[i].pos - I);
-                float falloff = max(1 / (dist * dist) - 0.25f, 0.0f);
+                float3 s_ray_dir = normalize(lights[i].pos - I);
+                float angle = dot(N, s_ray_dir);
 
                 if (angle <= 0)
                     continue;
+                
+                float dist = length(lights[i].pos - I);
+                float falloff = max(1 / (dist * dist) - 0.25f, 0.0f);
 
-                Ray shadow_ray = Ray(I, s_ray_dir);
-                if (scene.IsOccluded(shadow_ray))
+                if (falloff <= 0.0f)
+                    continue;
+
+                Ray shadow_ray = Ray(lights[i].pos, -s_ray_dir, dist);
+                if (scene.IsOccluded(shadow_ray, GRIDLAYERS))
                     continue;
                 final_color += albedo * lights[i].color * falloff * angle;
             }
@@ -157,8 +90,8 @@ float3 Renderer::Trace(Ray& ray)
                 if (angle <= 0)
                     continue;
 
-                Ray shadow_ray = Ray(I, -lights[i].dir);
-                if (scene.IsOccluded(shadow_ray))
+                Ray shadow_ray = Ray(I * lights[i].dir * 1000.0f, -lights[i].dir);
+                if (scene.IsOccluded(shadow_ray, GRIDLAYERS))
                     continue;
                 final_color += albedo * lights[i].color * angle;
             }
@@ -166,7 +99,6 @@ float3 Renderer::Trace(Ray& ray)
         case LightType::SPOT: 
             {
                 // Source: https://math.hws.edu/graphicsbook/c7/s2.html#webgl3d.2.6
-                // NOTE: Not very performant!!!
                 float spot_factor = 1.0f;
 
                 float3 spot_dir = lights[i].dir;
@@ -186,8 +118,8 @@ float3 Renderer::Trace(Ray& ray)
                 else
                     spot_factor = 0.0f;
 
-                Ray shadow_ray = Ray(I, s_ray_dir);
-                if (scene.IsOccluded(shadow_ray))
+                Ray shadow_ray = Ray(lights[i].pos, -s_ray_dir, length(lights[i].pos - I));
+                if (scene.IsOccluded(shadow_ray, GRIDLAYERS))
                     continue;
 
                 final_color += albedo * lights[i].color * spot_factor * angle * a;
@@ -214,21 +146,48 @@ float3 Renderer::Trace(Ray& ray)
                  //final_color += albedo * lights[i].color * spot_value * a;
             }
             break;
+            case LightType::AREA:
+            {
+                // Soft Shadows
+                float randomised_f = RandomFloat();
+
+                float x = lights[i].radius * cosf(randomised_f) * sinf(randomised_f);
+                float y = lights[i].radius * sinf(randomised_f) * sinf(randomised_f);
+                float z = lights[i].radius * cosf(randomised_f);
+                float3 new_pos = lights[i].pos + float3(x, y, z);
+
+                float3 s_ray_dir = normalize(new_pos - I);
+                float angle = dot(N, s_ray_dir);
+                float dist = length(new_pos - I);
+                float falloff = max(1 / (dist * dist) - 0.25f, 0.0f);
+
+                if (angle <= 0)
+                    continue;
+
+                Ray shadow_ray = Ray(new_pos, -s_ray_dir, dist);
+                if (scene.IsOccluded(shadow_ray, GRIDLAYERS))
+                    continue;
+                final_color += albedo * lights[i].color * falloff * angle;
+            }
+            break;
         default:
             break;
         }
     }
 
     // Reflections (Source: https://jacco.ompf2.com/2022/05/27/how-to-build-a-bvh-part-8-whitted-style/)
-    /*float3 sec_D = ray.D - 2 * N * dot(N, ray.D);
+    float3 sec_D = ray.D - 2 * N * dot(N, ray.D);
     float3 sec_O = I + N * 0.001f;
-    
-    Ray secondary = Ray(sec_O, sec_D);
+
+    uint random_val = RandomUInt();
+    sec_D += diffusereflection(N, random_val) * roughness;
+
+    Ray secondary = Ray(sec_O, normalize(sec_D));
     secondary.depth = ray.depth + 1;
 
     if (secondary.depth >= 20)
         return float3(0.0f);
-    return Trace(secondary);*/
+    return Trace(secondary);
 
     // Ray shadow_ray = Ray(I, normalize(sun_pos - I));
     /* visualize normal */   // return (N + 1) * 0.5f;
@@ -277,11 +236,6 @@ void Renderer::Tick(float deltaTime)
                 accumulator[x + y * SCRWIDTH] += p;
             
             screen->pixels[x + y * SCRWIDTH] = RGBF32_to_RGB8(&(accumulator[x + y * SCRWIDTH] / float(frames)));
-
-            //float4 pixel = float4(Trace(camera.GetPrimaryRay((float)x, (float)y)), 0);
-            //// translate accumulator contents to rgb32 pixels
-            //screen->pixels[x + y * SCRWIDTH] = RGBF32_to_RGB8(&pixel);
-            //accumulator[x + y * SCRWIDTH] = pixel;
         }
     }
 
@@ -307,10 +261,8 @@ void Renderer::Tick(float deltaTime)
 // -----------------------------------------------------------
 void Renderer::UI()
 {
-    // ray query on mouse
-    /*Ray r = camera.GetPrimaryRay( (float)mousePos.x, (float)mousePos.y );
-    scene.FindNearest( r );
-    ImGui::Text( "voxel: %i", r.voxel );*/
+    ImGui::SliderFloat("Roughness", &roughness, 0.0f, 1.0f);
+
     if (ImGui::Button("Add Point Light"))
     {
         lights.push_back(Light(LightType::POINT));
@@ -326,6 +278,11 @@ void Renderer::UI()
         lights.push_back(Light(LightType::SPOT));
         scene.has_changed = true;
     }
+    if (ImGui::Button("Add Area Light"))
+    {
+        lights.push_back(Light(LightType::AREA));
+        scene.has_changed = true;
+    }
 
     for (size_t i = 0; i < lights.size(); i++)
     {
@@ -336,6 +293,7 @@ void Renderer::UI()
                 std::string name = "Point Light " + std::to_string(i);
                 if (ImGui::CollapsingHeader(name.c_str()))
                 {
+                    scene.has_changed = true;
                     ImGui::SliderFloat3("Pos", &lights[i].pos.x, 0.0f, 1.0f);
                     ImGui::ColorEdit3("Color", &lights[i].color.x, ImGuiColorEditFlags_Float);
                     if (ImGui::SmallButton("Remove"))
@@ -348,6 +306,7 @@ void Renderer::UI()
                 std::string name = "Directional Light " + std::to_string(i);
                 if (ImGui::CollapsingHeader(name.c_str()))
                 {
+                    scene.has_changed = true;
                     ImGui::SliderFloat3("Direction", &lights[i].dir.x, -1.0f, 1.0f);
                     ImGui::ColorEdit3("Color", &lights[i].color.x, ImGuiColorEditFlags_Float);
                     if (ImGui::SmallButton("Remove"))
@@ -360,12 +319,27 @@ void Renderer::UI()
                 std::string name = "Spotlight " + std::to_string(i);
                 if (ImGui::CollapsingHeader(name.c_str()))
                 {
+                    scene.has_changed = true;
                     ImGui::SliderFloat3("Direction", &lights[i].dir.x, -1.0f, 1.0f);
                     ImGui::SliderFloat3("Pos", &lights[i].pos.x, 0.0f, 1.0f);
                     /*ImGui::SliderFloat("Inner Angle", &lights[i].inner_angle, 0.0f, 1.0f);
                     ImGui::SliderFloat("Outer Angle", &lights[i].outer_angle, 1.0f, 2.0f);*/
                     ImGui::SliderFloat("Cutoff Angle", &lights[i].cutoff_angle, 0.0f, 1.0f);
                     ImGui::SliderFloat("Spot Exponent", &lights[i].spot_exponent, 0.0f, 100.0f);
+                    ImGui::ColorEdit3("Color", &lights[i].color.x, ImGuiColorEditFlags_Float);
+                    if (ImGui::SmallButton("Remove"))
+                        lights.erase(lights.begin() + i);
+                }
+            }
+            break;
+        case LightType::AREA: 
+            {
+                std::string name = "Area Light " + std::to_string(i);
+                if (ImGui::CollapsingHeader(name.c_str()))
+                {
+                    scene.has_changed = true;
+                    ImGui::SliderFloat3("Pos", &lights[i].pos.x, 0.0f, 1.0f);
+                    ImGui::SliderFloat("Radius", &lights[i].radius, 0.0f, 1.0f);
                     ImGui::ColorEdit3("Color", &lights[i].color.x, ImGuiColorEditFlags_Float);
                     if (ImGui::SmallButton("Remove"))
                         lights.erase(lights.begin() + i);

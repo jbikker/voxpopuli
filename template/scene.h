@@ -113,7 +113,7 @@ public:
 	
 	Scene();
     void FindNearest( Ray& ray, const int layer ) const;
-	bool IsOccluded( const Ray& ray ) const;
+	bool IsOccluded( const Ray& ray, const int layer ) const;
     void Set(const uint x, const uint y, const uint z, const uint8_t v);
 	uint8_t* grid;
     uint8_t* grids[GRIDLAYERS];

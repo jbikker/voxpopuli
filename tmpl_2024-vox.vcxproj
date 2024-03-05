@@ -11,7 +11,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectName>voxpopuli</ProjectName>
+    <ProjectName>voxforge</ProjectName>
     <ProjectGuid>{1B482D44-6893-42E7-ADF6-E497E4FCE916}</ProjectGuid>
     <RootNamespace>Tmpl8</RootNamespace>
     <Keyword>Win32Proj</Keyword>
