@@ -21,7 +21,49 @@ void Renderer::Init()
     skydome = Skydome();
 }
 
+
+
 float roughness = 0.3f;
+float3 point_a = 0.0f;
+float3 point_b = 0.0f;
+float rad = 0.0f;
+
+float cyl_intersect(Ray& ray)
+{
+    // Capsule Intersection (Source: https://iquilezles.org/articles/intersectors/)
+    float3 ba = point_b - point_a; // BA vector
+    float3 oa = ray.O - point_a;
+    float baba = dot(ba, ba);
+    float bard = dot(ba, normalize(ray.D));
+    float baoa = dot(ba, oa);
+    float rdoa = dot(normalize(ray.D), oa);
+    float oaoa = dot(oa, oa);
+    float a = baba - bard * bard;
+    float b = baba * rdoa - baoa * bard;
+    float c = baba * oaoa - baoa * baoa - rad * rad * baba;
+    float h = b * b - a * c;
+
+    if (h >= 0.0f)
+    {
+        float t = (-b - sqrt(h)) / a;
+        float y = baoa + t * bard;
+        // Body
+        if (y > 0.0f && y < baba)
+        {
+            return t;
+        }
+        // Caps
+        float3 oc = (y <= 0.0f) ? oa : ray.O - point_b;
+        b = dot(normalize(ray.D), oc);
+        c = dot(oc, oc) - rad * rad;
+        h = b * b - c;
+        if (h > 0.0f)
+        {
+            return -b - sqrt(h);
+        }
+    }
+    return -1.0f;
+}
 
 // -----------------------------------------------------------
 // Evaluate light transport
@@ -29,9 +71,25 @@ float roughness = 0.3f;
 float3 Renderer::Trace(Ray& ray)
 {
     ray.t = 0.0f;
-    scene.FindNearest(ray, GRIDLAYERS);
+    // scene.FindNearest(ray, GRIDLAYERS);
 
-   // return ray.steps / 64.0f;
+    float t = cyl_intersect(ray);
+    if (t > 0.0f)
+    {
+        float3 ba = point_b - point_a;
+        float3 pa = (ray.O + t * normalize(ray.D)) - point_a;
+        float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+        float3 normal = (pa - h * ba) / rad;
+        normal.y = 0;
+        float3 d = ray.D;
+        d.y = 0;
+        float fact = dot(normal, -normalize(d));
+        return float3(0, 0, 1) * powf(fact, 10.0f);
+    }
+    else
+        return 0.0f;
+
+    // return ray.steps / 64.0f;
 
     if (ray.voxel == 0)
         return skydome.render(ray); // or a fancy sky color
@@ -58,6 +116,8 @@ float3 Renderer::Trace(Ray& ray)
     //uint8_t b = tex.data[index + 2];
 
     //albedo = float3(r, g, b) / 255.0f;
+
+    
 
     for (size_t i = 0; i < lights.size(); i++)
     {
@@ -203,9 +263,6 @@ void Renderer::Tick(float deltaTime)
 {
     time += deltaTime;
 
-    if (IsKeyDown(GLFW_KEY_Q))
-        lights[0].pos = camera.camPos;
-
     if (scene.has_changed)
     {
         frames = 1;
@@ -262,6 +319,9 @@ void Renderer::Tick(float deltaTime)
 void Renderer::UI()
 {
     ImGui::SliderFloat("Roughness", &roughness, 0.0f, 1.0f);
+    ImGui::SliderFloat3("Point A", &point_a.x, 0.0f, 1.0f);
+    ImGui::SliderFloat3("Point B", &point_b.x, 0.0f, 1.0f);
+    ImGui::SliderFloat("Radius", &rad, 0.0f, 1.0f);
 
     if (ImGui::Button("Add Point Light"))
     {
