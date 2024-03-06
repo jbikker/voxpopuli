@@ -85,6 +85,12 @@ void ErrorCallback( int, const char* description )
 // Application entry point
 void main()
 {
+	// set fp flags: denormalize & flush to zero
+	// Thanks Caden Parker
+	_mm_setcsr( _mm_getcsr() | (_MM_FLUSH_ZERO_ON | _MM_DENORMALS_ZERO_ON) );
+	/* in case you need this in Linux, this is the non-windows way:
+	#include <fenv.h>
+	fesetenv(FE_DFL_DISABLE_SSE_DENORMS_ENV); */
 	// open a window
 	if (!glfwInit()) FatalError( "glfwInit failed." );
 	glfwSetErrorCallback( ErrorCallback );

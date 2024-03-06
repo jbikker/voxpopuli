@@ -2,7 +2,7 @@
 
 // high level settings
 // #define TWOLEVEL
-#define WORLDSIZE	128 // power of 2. Warning: max 512 for a 512x512x512x4 bytes = 512MB world!
+#define WORLDSIZE	64 // power of 2. Warning: max 512 for a 512x512x512x4 bytes = 512MB world!
 // #define USE_SIMD
 // #define USE_FMA3
 // #define SKYDOME
@@ -37,7 +37,14 @@ public:
 		// calculate reciprocal ray direction for triangles and AABBs
 		// TODO: prevent NaNs - or don't
 		rD = float3( 1 / D.x, 1 / D.y, 1 / D.z );
+	#if 1
+		uint xsign = *(uint*)&D.x >> 31;
+		uint ysign = *(uint*)&D.y >> 31;
+		uint zsign = *(uint*)&D.z >> 31;
+		Dsign = (float3( (float)xsign * 2 - 1,(float)ysign * 2 - 1, (float)zsign * 2 - 1 ) + 1) * 0.5f;
+	#else
 		Dsign = (float3( -copysign( 1.0f, D.x ), -copysign( 1.0f, D.y ), -copysign( 1.0f, D.z ) ) + 1) * 0.5f;
+	#endif
 	}
 	float3 IntersectionPoint() const { return O + t * D; }
 	float3 GetNormal() const;
