@@ -36,6 +36,8 @@ private:
     std::vector<Light> lights;
     
 	Skydome skydome;
+
+	bool grid_view = false;
 };
 
 } // namespace Tmpl8

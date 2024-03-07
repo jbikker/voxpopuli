@@ -21,7 +21,7 @@ void Renderer::Init()
     skydome = Skydome();
 }
 
-
+bool activate_lightsaber = false;
 
 float roughness = 0.3f;
 float3 point_a = 0.0f;
@@ -65,34 +65,108 @@ float cyl_intersect(Ray& ray)
     return -1.0f;
 }
 
+float3 light_color = float3(0.0f, 1.0f, 0.0f);
+
+float3 seg_proj(float3 a, float3 b, float3 p)
+{
+    return clamp(dot(p - a, b - a) / dot(b - a, b - a), 0.0f, 1.0f) * (b - a) + a;
+}
+
+float seg_dist(float3 a, float3 b, float3 p)
+{
+    return length(seg_proj(a, b, p) - p);
+}
+
+float flux_anti_derivative(float3 a, float3 b, float3 p, float t)
+{
+    float3 ab = b - a;
+    float3 pa = a - p;
+
+    float A = dot(ab, ab);
+    float B = dot(ab, pa);
+    float C = dot(pa, pa);
+
+    float discr = A * C - B * B;
+
+    if (discr <= 0.)
+        return 0.;
+
+    float denom = sqrt(A * C - B * B);
+    return atan2f((A * t + B), denom) / denom;
+}
+
+float flux(float3 a, float3 b, float3 p)
+{
+    return flux_anti_derivative(a, b, p, 1.) - flux_anti_derivative(a, b, p, 0.);
+}
+
 // -----------------------------------------------------------
 // Evaluate light transport
 // -----------------------------------------------------------
 float3 Renderer::Trace(Ray& ray)
 {
     ray.t = 0.0f;
-    // scene.FindNearest(ray, GRIDLAYERS);
+    scene.FindNearest(ray, GRIDLAYERS);
+    
+    float3 color = 0.0f;
 
-    float t = cyl_intersect(ray);
-    if (t > 0.0f)
+    if (activate_lightsaber)
     {
-        float3 ba = point_b - point_a;
-        float3 pa = (ray.O + t * normalize(ray.D)) - point_a;
-        float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
-        float3 normal = (pa - h * ba) / rad;
-        normal.y = 0;
-        float3 d = ray.D;
-        d.y = 0;
-        float fact = dot(normal, -normalize(d));
-        return float3(0, 0, 1) * powf(fact, 10.0f);
-    }
-    else
-        return 0.0f;
+        float t = cyl_intersect(ray);
+        if (t >= 0.0f)
+        {
+            /*float3 ba = point_b - point_a;
+            float3 pa = (ray.O + t * normalize(ray.D)) - point_a;
+            float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+            float3 normal = (pa - h * ba) / rad;
+            normal.y = 0;
+            float3 d = ray.D;
+            d.y = 0;
+            float fact = dot(normal, -normalize(d));
+            return float3(0, 0, 1) * fact;*/
 
-    // return ray.steps / 64.0f;
+            float intensity = 1.5f;
+
+            float3 p = ray.O + t * normalize(ray.D);
+            float min_d = 9e9;
+            float glow = 0.0003f * intensity;
+            const float eps = 1e-3;
+            float core_brightness = 2.5f;
+
+            for (int i = 0; i < 10; i++)
+            {
+                float d = seg_dist(point_a, point_b, p) - rad;
+                min_d = min(d, min_d);
+                color += light_color * glow * flux(point_a, point_b, p);
+
+                if (d < eps)
+                {
+                    color += light_color * intensity * core_brightness;
+                    break;
+                }
+                t += d;
+                p = normalize(ray.D) * t + ray.O;
+                if (t > 1e6)
+                    break;
+            }
+
+            float softness = 22.5f;
+            if (min_d >= eps && min_d < eps * softness)
+            {
+                color += core_brightness * light_color * intensity * smoothstep(softness * eps, eps, min_d);
+            }
+
+            return color;
+        }
+        else
+            return 0.0f;
+    }
+
+    if (grid_view)
+        return ray.steps / 64.0f;
 
     if (ray.voxel == 0)
-        return skydome.render(ray); // or a fancy sky color
+        return skydome.render(ray);
 
     float3 I = ray.O + (ray.t - 0.00001f) * ray.D;
     const float3 L = normalize(float3(1, 4, 0.5f));
@@ -117,8 +191,6 @@ float3 Renderer::Trace(Ray& ray)
 
     //albedo = float3(r, g, b) / 255.0f;
 
-    
-
     for (size_t i = 0; i < lights.size(); i++)
     {
         switch (lights[i].type)
@@ -137,7 +209,8 @@ float3 Renderer::Trace(Ray& ray)
                 if (falloff <= 0.0f)
                     continue;
 
-                Ray shadow_ray = Ray(lights[i].pos, -s_ray_dir, dist);
+                Ray shadow_ray = Ray(I, s_ray_dir);
+                //Ray shadow_ray = Ray(lights[i].pos, -s_ray_dir, dist);
                 if (scene.IsOccluded(shadow_ray, GRIDLAYERS))
                     continue;
                 final_color += albedo * lights[i].color * falloff * angle;
@@ -236,7 +309,7 @@ float3 Renderer::Trace(Ray& ray)
     }
 
     // Reflections (Source: https://jacco.ompf2.com/2022/05/27/how-to-build-a-bvh-part-8-whitted-style/)
-    float3 sec_D = ray.D - 2 * N * dot(N, ray.D);
+    /*float3 sec_D = ray.D - 2 * N * dot(N, ray.D);
     float3 sec_O = I + N * 0.001f;
 
     uint random_val = RandomUInt();
@@ -247,13 +320,13 @@ float3 Renderer::Trace(Ray& ray)
 
     if (secondary.depth >= 20)
         return float3(0.0f);
-    return Trace(secondary);
+    return Trace(secondary);*/
 
     // Ray shadow_ray = Ray(I, normalize(sun_pos - I));
     /* visualize normal */   // return (N + 1) * 0.5f;
     /* visualize distance */ // return float3( 1 / (1 + ray.t) );
     /* visualize albedo */ 
-    return final_color;
+    return color;
 }
 
 // -----------------------------------------------------------
@@ -322,6 +395,8 @@ void Renderer::UI()
     ImGui::SliderFloat3("Point A", &point_a.x, 0.0f, 1.0f);
     ImGui::SliderFloat3("Point B", &point_b.x, 0.0f, 1.0f);
     ImGui::SliderFloat("Radius", &rad, 0.0f, 1.0f);
+    ImGui::Checkbox("Activate Lightsaber", &activate_lightsaber);
+    ImGui::Checkbox("Grid View", &grid_view);
 
     if (ImGui::Button("Add Point Light"))
     {

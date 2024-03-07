@@ -139,7 +139,7 @@ Scene::Scene()
                     for (size_t i = 0; i < GRIDLAYERS; i++)
                     {
                         uint8_t b = (1 << i);
-                        #if __AVX2__
+                        #if __AVX23__
                             grids[i][morton_encode(floor(x / b), floor(y / b), floor(z / b))] = 1;
                         #else
                             grids[i][(x / b) + (y / b) * (GRIDSIZE / b) + (z / b) * (GRIDSIZE / b) * (GRIDSIZE / b)] = 1;
@@ -201,7 +201,7 @@ void Scene::FindNearest(Ray& ray, const int layer) const
     while (1)
     {
         ray.steps++;
-        #if __AVX2__
+        #if __AVX23__
             const uint cell = grids[layer - 1][morton_encode(s.X, s.Y, s.Z)];
         #else
             const uint cell = grids[layer - 1][s.X + s.Y * grid_size + s.Z * grid_size * grid_size];
@@ -235,53 +235,10 @@ void Scene::FindNearest(Ray& ray, const int layer) const
 
 bool Scene::IsOccluded(const Ray& ray, const int layer) const
 {
-    //// setup Amanatides & Woo grid traversal
-    //DDAState s, bs;
-    //if (!Setup3DDDA(ray, s))
-    //    return false;
-    //// start stepping
-    //while (s.t < ray.t)
-    //{
-    //    const uint cell = grid[s.X + s.Y * GRIDSIZE + s.Z * GRIDSIZE2];
-    //    if (cell) /* we hit a solid voxel */
-    //        return s.t < ray.t;
-    //    if (s.tmax.x < s.tmax.y)
-    //    {
-    //        if (s.tmax.x < s.tmax.z)
-    //        {
-    //            if ((s.X += s.step.x) >= GRIDSIZE)
-    //                return false;
-    //            s.t = s.tmax.x, s.tmax.x += s.tdelta.x;
-    //        }
-    //        else
-    //        {
-    //            if ((s.Z += s.step.z) >= GRIDSIZE)
-    //                return false;
-    //            s.t = s.tmax.z, s.tmax.z += s.tdelta.z;
-    //        }
-    //    }
-    //    else
-    //    {
-    //        if (s.tmax.y < s.tmax.z)
-    //        {
-    //            if ((s.Y += s.step.y) >= GRIDSIZE)
-    //                return false;
-    //            s.t = s.tmax.y, s.tmax.y += s.tdelta.y;
-    //        }
-    //        else
-    //        {
-    //            if ((s.Z += s.step.z) >= GRIDSIZE)
-    //                return false;
-    //            s.t = s.tmax.z, s.tmax.z += s.tdelta.z;
-    //        }
-    //    }
-    //}
-    //return false;
-
     // setup Amanatides & Woo grid traversal
     DDAState s, bs;
     s.scale = (1 << (layer - 1));
-    const int gridSize = GRIDSIZE / s.scale;
+    const int grid_size = GRIDSIZE / s.scale;
     if (!Setup3DDDA(ray, s))
         return false;
 
@@ -293,8 +250,8 @@ bool Scene::IsOccluded(const Ray& ray, const int layer) const
         {
             if (layer != 1)
             {
-                Ray nRay(ray.O + s.t * ray.D, ray.D, ray.t - s.t);
-                return IsOccluded(nRay, layer - 1);
+                Ray sec_ray(ray.O + ray.t * ray.D, ray.D/*, ray.t - s.t*/);
+                return IsOccluded(sec_ray, layer - 1);
             }
             else
             {
@@ -307,13 +264,13 @@ bool Scene::IsOccluded(const Ray& ray, const int layer) const
         {
             if (s.tmax.x < s.tmax.z)
             {
-                if ((s.X += s.step.x) >= gridSize)
+                if ((s.X += s.step.x) >= grid_size)
                     return false;
                 s.t = s.tmax.x, s.tmax.x += s.tdelta.x;
             }
             else
             {
-                if ((s.Z += s.step.z) >= gridSize)
+                if ((s.Z += s.step.z) >= grid_size)
                     return false;
                 s.t = s.tmax.z, s.tmax.z += s.tdelta.z;
             }
@@ -322,13 +279,13 @@ bool Scene::IsOccluded(const Ray& ray, const int layer) const
         {
             if (s.tmax.y < s.tmax.z)
             {
-                if ((s.Y += s.step.y) >= gridSize)
+                if ((s.Y += s.step.y) >= grid_size)
                     return false;
                 s.t = s.tmax.y, s.tmax.y += s.tdelta.y;
             }
             else
             {
-                if ((s.Z += s.step.z) >= gridSize)
+                if ((s.Z += s.step.z) >= grid_size)
                     return false;
                 s.t = s.tmax.z, s.tmax.z += s.tdelta.z;
             }
