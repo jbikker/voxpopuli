@@ -43,9 +43,14 @@ float cyl_intersect(Ray& ray)
     float c = baba * oaoa - baoa * baoa - rad * rad * baba;
     float h = b * b - a * c;
 
-    if (h >= 0.0f)
+    if (h >= 0.0f) 
     {
         float t = (-b - sqrt(h)) / a;
+        //float t2 = (-b + sqrt(h)) / a;
+        //
+        //float diff = t - t2;
+        //return diff;
+
         float y = baoa + t * bard;
         // Body
         if (y > 0.0f && y < baba)
@@ -113,9 +118,10 @@ float3 Renderer::Trace(Ray& ray)
     if (activate_lightsaber)
     {
         float t = cyl_intersect(ray);
+        //return float3(t, 0.0f, 0.0f);
         if (t >= 0.0f)
         {
-            /*float3 ba = point_b - point_a;
+            float3 ba = point_b - point_a;
             float3 pa = (ray.O + t * normalize(ray.D)) - point_a;
             float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
             float3 normal = (pa - h * ba) / rad;
@@ -123,40 +129,40 @@ float3 Renderer::Trace(Ray& ray)
             float3 d = ray.D;
             d.y = 0;
             float fact = dot(normal, -normalize(d));
-            return float3(0, 0, 1) * fact;*/
+            return float3(0, 0, 1) * fact;
 
-            float intensity = 1.5f;
+            //float intensity = 1.5f;
 
-            float3 p = ray.O + t * normalize(ray.D);
-            float min_d = 9e9;
-            float glow = 0.0003f * intensity;
-            const float eps = 1e-3;
-            float core_brightness = 2.5f;
+            //float3 p = ray.O + t * normalize(ray.D);
+            //float min_d = 9e9;
+            //float glow = 0.0003f * intensity;
+            //const float eps = 1e-3;
+            //float core_brightness = 2.5f;
 
-            for (int i = 0; i < 10; i++)
-            {
-                float d = seg_dist(point_a, point_b, p) - rad;
-                min_d = min(d, min_d);
-                color += light_color * glow * flux(point_a, point_b, p);
+            //for (int i = 0; i < 10; i++)
+            //{
+            //    float d = seg_dist(point_a, point_b, p) - rad;
+            //    min_d = min(d, min_d);
+            //    color += light_color /** glow * flux(point_a, point_b, p)*/;
 
-                if (d < eps)
-                {
-                    color += light_color * intensity * core_brightness;
-                    break;
-                }
-                t += d;
-                p = normalize(ray.D) * t + ray.O;
-                if (t > 1e6)
-                    break;
-            }
+            //    if (d < eps)
+            //    {
+            //        color += light_color /** intensity * core_brightness*/;
+            //        break;
+            //    }
+            //    t += d;
+            //    p = normalize(ray.D) * t + ray.O;
+            //    if (t > 1e6)
+            //        break;
+            //}
 
-            float softness = 22.5f;
-            if (min_d >= eps && min_d < eps * softness)
-            {
-                color += core_brightness * light_color * intensity * smoothstep(softness * eps, eps, min_d);
-            }
+            //float softness = 22.5f;
+            //if (min_d >= eps && min_d < eps * softness)
+            //{
+            //    color += /*core_brightness * */light_color /** intensity * smoothstep(softness * eps, eps, min_d)*/;
+            //}
 
-            return color;
+            //return color;
         }
         else
             return 0.0f;
