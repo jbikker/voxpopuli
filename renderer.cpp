@@ -28,7 +28,7 @@ float3 point_a = 0.0f;
 float3 point_b = 0.0f;
 float rad = 0.0f;
 
-float cyl_intersect(Ray& ray)
+float cyl_intersect(Ray& ray, float radius)
 {
     // Capsule Intersection (Source: https://iquilezles.org/articles/intersectors/)
     float3 ba = point_b - point_a; // BA vector
@@ -40,7 +40,7 @@ float cyl_intersect(Ray& ray)
     float oaoa = dot(oa, oa);
     float a = baba - bard * bard;
     float b = baba * rdoa - baoa * bard;
-    float c = baba * oaoa - baoa * baoa - rad * rad * baba;
+    float c = baba * oaoa - baoa * baoa - radius * radius * baba;
     float h = b * b - a * c;
 
     if (h >= 0.0f) 
@@ -60,7 +60,7 @@ float cyl_intersect(Ray& ray)
         // Caps
         float3 oc = (y <= 0.0f) ? oa : ray.O - point_b;
         b = dot(normalize(ray.D), oc);
-        c = dot(oc, oc) - rad * rad;
+        c = dot(oc, oc) - radius * radius;
         h = b * b - c;
         if (h > 0.0f)
         {
@@ -117,55 +117,79 @@ float3 Renderer::Trace(Ray& ray)
 
     if (activate_lightsaber)
     {
-        float t = cyl_intersect(ray);
-        //return float3(t, 0.0f, 0.0f);
-        if (t >= 0.0f)
+        float core_t = cyl_intersect(ray, rad);
+        float outer_t = cyl_intersect(ray, rad * 3.0f);
+
+        if (core_t >= 0.0f)
+        {
+            return float3(1.0f, 1.0f, 1.0f);
+        }
+        else if (outer_t >= 0.0f)
         {
             float3 ba = point_b - point_a;
-            float3 pa = (ray.O + t * normalize(ray.D)) - point_a;
-            float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+            float3 pa = (ray.O + outer_t * normalize(ray.D)) - point_a;
+            float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0f, 1.0f);
             float3 normal = (pa - h * ba) / rad;
-            normal.y = 0;
             float3 d = ray.D;
-            d.y = 0;
             float fact = dot(normal, -normalize(d));
-            return float3(0, 0, 1) * fact;
-
-            //float intensity = 1.5f;
-
-            //float3 p = ray.O + t * normalize(ray.D);
-            //float min_d = 9e9;
-            //float glow = 0.0003f * intensity;
-            //const float eps = 1e-3;
-            //float core_brightness = 2.5f;
-
-            //for (int i = 0; i < 10; i++)
-            //{
-            //    float d = seg_dist(point_a, point_b, p) - rad;
-            //    min_d = min(d, min_d);
-            //    color += light_color /** glow * flux(point_a, point_b, p)*/;
-
-            //    if (d < eps)
-            //    {
-            //        color += light_color /** intensity * core_brightness*/;
-            //        break;
-            //    }
-            //    t += d;
-            //    p = normalize(ray.D) * t + ray.O;
-            //    if (t > 1e6)
-            //        break;
-            //}
-
-            //float softness = 22.5f;
-            //if (min_d >= eps && min_d < eps * softness)
-            //{
-            //    color += /*core_brightness * */light_color /** intensity * smoothstep(softness * eps, eps, min_d)*/;
-            //}
-
-            //return color;
+            //float3 intensity = float3(0.0f, 0.0f, 1.0f) * powf(fact, 100);
+            return float3(0.0f, 0.0f, 1.0f) * powf(max(fact - 0.5f, 0.0f), 10);
         }
         else
-            return 0.0f;
+        {
+            return float3(0.0f);
+        }
+
+        //return float3(t, 0.0f, 0.0f);
+        //if (core_t >= 0.0f)
+        //{
+        //    float3 ba = point_b - point_a;
+        //    float3 pa = (ray.O + t * normalize(ray.D)) - point_a;
+        //    float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+        //    float3 normal = (pa - h * ba) / rad;
+        //    float3 d = ray.D;
+        //    float fact = dot(normal, -normalize(d));
+        //    float3 intensity = float3(0.0f, 0.0f, 1.0f) * powf(fact, 10);
+        //    return float3(0.0f, 0.0f, 1.0f) + intensity;
+
+        //    //return float3(0.0f, 0.0f, 1.0f) * powf(fact, 10);
+
+
+        //    //float intensity = 1.5f;
+
+        //    //float3 p = ray.O + t * normalize(ray.D);
+        //    //float min_d = 9e9;
+        //    //float glow = 0.0003f * intensity;
+        //    //const float eps = 1e-3;
+        //    //float core_brightness = 2.5f;
+
+        //    //for (int i = 0; i < 10; i++)
+        //    //{
+        //    //    float d = seg_dist(point_a, point_b, p) - rad;
+        //    //    min_d = min(d, min_d);
+        //    //    color += light_color /** glow * flux(point_a, point_b, p)*/;
+
+        //    //    if (d < eps)
+        //    //    {
+        //    //        color += light_color /** intensity * core_brightness*/;
+        //    //        break;
+        //    //    }
+        //    //    t += d;
+        //    //    p = normalize(ray.D) * t + ray.O;
+        //    //    if (t > 1e6)
+        //    //        break;
+        //    //}
+
+        //    //float softness = 22.5f;
+        //    //if (min_d >= eps && min_d < eps * softness)
+        //    //{
+        //    //    color += /*core_brightness * */light_color /** intensity * smoothstep(softness * eps, eps, min_d)*/;
+        //    //}
+
+        //    //return color;
+        //}
+        //else
+        //    return 0.0f;
     }
 
     if (grid_view)
