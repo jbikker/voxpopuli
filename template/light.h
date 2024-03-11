@@ -5,7 +5,8 @@ enum class LightType
     POINT,
     DIRECTIONAL,
     SPOT,
-    AREA
+    AREA,
+    LINE
 };
 
 struct Light

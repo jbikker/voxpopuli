@@ -26,7 +26,7 @@ bool activate_lightsaber = false;
 float roughness = 0.3f;
 float3 point_a = 0.0f;
 float3 point_b = 0.0f;
-float rad = 0.0f;
+float rad = 0.005f;
 
 float cyl_intersect(Ray& ray, float radius)
 {
@@ -46,16 +46,13 @@ float cyl_intersect(Ray& ray, float radius)
     if (h >= 0.0f) 
     {
         float t = (-b - sqrt(h)) / a;
-        //float t2 = (-b + sqrt(h)) / a;
-        //
-        //float diff = t - t2;
-        //return diff;
+        float t2 = (-b + sqrt(h)) / a;
 
         float y = baoa + t * bard;
         // Body
         if (y > 0.0f && y < baba)
         {
-            return t;
+            return (t + t2) * 0.5f;
         }
         // Caps
         float3 oc = (y <= 0.0f) ? oa : ray.O - point_b;
@@ -64,7 +61,7 @@ float cyl_intersect(Ray& ray, float radius)
         h = b * b - c;
         if (h > 0.0f)
         {
-            return -b - sqrt(h);
+            return ((-b - sqrt(h)) + (-b + sqrt(h))) * 0.5f;
         }
     }
     return -1.0f;
@@ -105,98 +102,99 @@ float flux(float3 a, float3 b, float3 p)
     return flux_anti_derivative(a, b, p, 1.) - flux_anti_derivative(a, b, p, 0.);
 }
 
+float inv_falloff(float x)
+{
+    float x_sq = x * x;
+    return (1.0 - x_sq) / (10.0 * x_sq + 1.0);
+}
+
+float3 get_sign(float3 D)
+{
+    if (D.y == 0.0f)
+    {
+        uint xsign = *(uint*)&D.x >> 31;
+        //uint ysign = *(uint*)&D.y >> 31;
+        uint zsign = *(uint*)&D.z >> 31;
+
+        return (float3((float)xsign * 2.0f - 1.0f, 0.0f, (float)zsign * 2.0f - 1.0f) + 1) * 0.5f;
+    }
+
+    uint xsign = *(uint*)&D.x >> 31;
+    uint ysign = *(uint*)&D.y >> 31;
+    uint zsign = *(uint*)&D.z >> 31;
+
+    return (float3((float)xsign * 2.0f - 1.0f, (float)ysign * 2.0f - 1.0f, (float)zsign * 2.0f - 1.0f) + 1) * 0.5f;
+}
+
 // -----------------------------------------------------------
 // Evaluate light transport
 // -----------------------------------------------------------
 float3 Renderer::Trace(Ray& ray)
 {
-    ray.t = 0.0f;
-    scene.FindNearest(ray, GRIDLAYERS);
     
-    float3 color = 0.0f;
+
+    float outer_rad = rad * 5.0f;
+    float3 lightsaber_cont = 0.0f;
+    float intensity = 0.0f;
+    bool lightsaber_hit = false;
 
     if (activate_lightsaber)
     {
         float core_t = cyl_intersect(ray, rad);
-        float outer_t = cyl_intersect(ray, rad * 3.0f);
+        float outer_t = cyl_intersect(ray, outer_rad);
 
-        if (core_t >= 0.0f)
+        if (ray.t > outer_t)
         {
-            return float3(1.0f, 1.0f, 1.0f);
+            float3 min, max;
+            if (point_a.y > point_b.y)
+            {
+                min = point_b;
+                max = point_a;
+            }
+            else
+            {
+                min = point_a;
+                max = point_b;
+            }
+
+            if (core_t >= 0.0f)
+            {
+                return float3(1.0f, 1.0f, 1.0f);
+            }
+            else if (outer_t >= 0.0f)
+            {
+                lightsaber_hit = true;
+
+                float3 p = ray.O + outer_t * normalize(ray.D);
+
+                float y_diff = max.y - min.y;
+                float y_change = p.y - min.y;
+                float final_t = y_change / y_diff;
+
+                float3 center = lerp(min, max, final_t);
+
+                float fact = std::max(1.0f - (length(p - center) / outer_rad), 0.0f);
+
+                lightsaber_cont = float3(0.0f, 1.0f, 0.0f) * fact;
+            }
+
+            if (lightsaber_cont.x > intensity)
+                intensity = lightsaber_cont.x;
+            if (lightsaber_cont.y > intensity)
+                intensity = lightsaber_cont.y;
+            if (lightsaber_cont.z > intensity)
+                intensity = lightsaber_cont.z;
         }
-        else if (outer_t >= 0.0f)
-        {
-            float3 ba = point_b - point_a;
-            float3 pa = (ray.O + outer_t * normalize(ray.D)) - point_a;
-            float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0f, 1.0f);
-            float3 normal = (pa - h * ba) / rad;
-            float3 d = ray.D;
-            float fact = dot(normal, -normalize(d));
-            //float3 intensity = float3(0.0f, 0.0f, 1.0f) * powf(fact, 100);
-            return float3(0.0f, 0.0f, 1.0f) * powf(max(fact - 0.5f, 0.0f), 10);
-        }
-        else
-        {
-            return float3(0.0f);
-        }
-
-        //return float3(t, 0.0f, 0.0f);
-        //if (core_t >= 0.0f)
-        //{
-        //    float3 ba = point_b - point_a;
-        //    float3 pa = (ray.O + t * normalize(ray.D)) - point_a;
-        //    float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
-        //    float3 normal = (pa - h * ba) / rad;
-        //    float3 d = ray.D;
-        //    float fact = dot(normal, -normalize(d));
-        //    float3 intensity = float3(0.0f, 0.0f, 1.0f) * powf(fact, 10);
-        //    return float3(0.0f, 0.0f, 1.0f) + intensity;
-
-        //    //return float3(0.0f, 0.0f, 1.0f) * powf(fact, 10);
-
-
-        //    //float intensity = 1.5f;
-
-        //    //float3 p = ray.O + t * normalize(ray.D);
-        //    //float min_d = 9e9;
-        //    //float glow = 0.0003f * intensity;
-        //    //const float eps = 1e-3;
-        //    //float core_brightness = 2.5f;
-
-        //    //for (int i = 0; i < 10; i++)
-        //    //{
-        //    //    float d = seg_dist(point_a, point_b, p) - rad;
-        //    //    min_d = min(d, min_d);
-        //    //    color += light_color /** glow * flux(point_a, point_b, p)*/;
-
-        //    //    if (d < eps)
-        //    //    {
-        //    //        color += light_color /** intensity * core_brightness*/;
-        //    //        break;
-        //    //    }
-        //    //    t += d;
-        //    //    p = normalize(ray.D) * t + ray.O;
-        //    //    if (t > 1e6)
-        //    //        break;
-        //    //}
-
-        //    //float softness = 22.5f;
-        //    //if (min_d >= eps && min_d < eps * softness)
-        //    //{
-        //    //    color += /*core_brightness * */light_color /** intensity * smoothstep(softness * eps, eps, min_d)*/;
-        //    //}
-
-        //    //return color;
-        //}
-        //else
-        //    return 0.0f;
     }
+
+    ray.t = 0.0f;
+    scene.FindNearest(ray, GRIDLAYERS);
 
     if (grid_view)
         return ray.steps / 64.0f;
 
-    if (ray.voxel == 0)
-        return skydome.render(ray);
+    if (ray.voxel == 0 /*&& !lightsaber_hit*/)
+        return skydome.render(ray) * (1.0f - intensity) + lightsaber_cont;
 
     float3 I = ray.O + (ray.t - 0.00001f) * ray.D;
     const float3 L = normalize(float3(1, 4, 0.5f));
@@ -239,8 +237,8 @@ float3 Renderer::Trace(Ray& ray)
                 if (falloff <= 0.0f)
                     continue;
 
-                Ray shadow_ray = Ray(I, s_ray_dir);
-                //Ray shadow_ray = Ray(lights[i].pos, -s_ray_dir, dist);
+                //Ray shadow_ray = Ray(I, s_ray_dir);
+                Ray shadow_ray = Ray(lights[i].pos, -s_ray_dir, dist);
                 if (scene.IsOccluded(shadow_ray, GRIDLAYERS))
                     continue;
                 final_color += albedo * lights[i].color * falloff * angle;
@@ -333,6 +331,27 @@ float3 Renderer::Trace(Ray& ray)
                 final_color += albedo * lights[i].color * falloff * angle;
             }
             break;
+            case LightType::LINE:
+            {
+                // Soft Shadows
+                float randomised_f = RandomFloat();
+
+                float3 new_pos = lerp(point_a, point_b, randomised_f);
+
+                float3 s_ray_dir = normalize(new_pos - I);
+                float angle = dot(N, s_ray_dir);
+                float dist = length(new_pos - I);
+                float falloff = max(1 / (dist * dist) - 0.25f, 0.0f);
+
+                if (angle <= 0)
+                    continue;
+
+                Ray shadow_ray = Ray(new_pos, -s_ray_dir, dist);
+                if (scene.IsOccluded(shadow_ray, GRIDLAYERS))
+                    continue;
+                final_color += albedo * lights[i].color * falloff * angle;
+            }
+            break;
         default:
             break;
         }
@@ -356,7 +375,7 @@ float3 Renderer::Trace(Ray& ray)
     /* visualize normal */   // return (N + 1) * 0.5f;
     /* visualize distance */ // return float3( 1 / (1 + ray.t) );
     /* visualize albedo */ 
-    return color;
+    return final_color * (1.0f - intensity) + lightsaber_cont;
 }
 
 // -----------------------------------------------------------
@@ -424,7 +443,7 @@ void Renderer::UI()
     ImGui::SliderFloat("Roughness", &roughness, 0.0f, 1.0f);
     ImGui::SliderFloat3("Point A", &point_a.x, 0.0f, 1.0f);
     ImGui::SliderFloat3("Point B", &point_b.x, 0.0f, 1.0f);
-    ImGui::SliderFloat("Radius", &rad, 0.0f, 1.0f);
+    ImGui::SliderFloat("Radius", &rad, 0.0f, 0.25f);
     ImGui::Checkbox("Activate Lightsaber", &activate_lightsaber);
     ImGui::Checkbox("Grid View", &grid_view);
 
@@ -446,6 +465,11 @@ void Renderer::UI()
     if (ImGui::Button("Add Area Light"))
     {
         lights.push_back(Light(LightType::AREA));
+        scene.has_changed = true;
+    }
+    if (ImGui::Button("Add Line Light"))
+    {
+        lights.push_back(Light(LightType::LINE));
         scene.has_changed = true;
     }
 
@@ -511,6 +535,17 @@ void Renderer::UI()
                 }
             }
             break;
+            case LightType::LINE: 
+            {
+                std::string name = "Line Light " + std::to_string(i);
+                if (ImGui::CollapsingHeader(name.c_str()))
+                {
+                    scene.has_changed = true;
+                    ImGui::ColorEdit3("Color", &lights[i].color.x, ImGuiColorEditFlags_Float);
+                    if (ImGui::SmallButton("Remove"))
+                        lights.erase(lights.begin() + i);
+                }
+            }
         default:
             break;
         }

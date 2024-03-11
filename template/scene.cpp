@@ -139,7 +139,7 @@ Scene::Scene()
                     for (size_t i = 0; i < GRIDLAYERS; i++)
                     {
                         uint8_t b = (1 << i);
-                        #if __AVX23__
+                        #if __AVX2__
                             grids[i][morton_encode(floor(x / b), floor(y / b), floor(z / b))] = 1;
                         #else
                             grids[i][(x / b) + (y / b) * (GRIDSIZE / b) + (z / b) * (GRIDSIZE / b) * (GRIDSIZE / b)] = 1;
@@ -201,7 +201,7 @@ void Scene::FindNearest(Ray& ray, const int layer) const
     while (1)
     {
         ray.steps++;
-        #if __AVX23__
+        #if __AVX2__
             const uint cell = grids[layer - 1][morton_encode(s.X, s.Y, s.Z)];
         #else
             const uint cell = grids[layer - 1][s.X + s.Y * grid_size + s.Z * grid_size * grid_size];
@@ -250,7 +250,7 @@ bool Scene::IsOccluded(const Ray& ray, const int layer) const
         {
             if (layer != 1)
             {
-                Ray sec_ray(ray.O + ray.t * ray.D, ray.D/*, ray.t - s.t*/);
+                Ray sec_ray(ray.O + s.t * ray.D, ray.D, ray.t - s.t);
                 return IsOccluded(sec_ray, layer - 1);
             }
             else
