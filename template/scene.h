@@ -1,5 +1,8 @@
 #pragma once
 
+#include "lightsaber.h"
+#include "voxel_data.h"
+
 // high level settings
 // #define TWOLEVEL
 #define WORLDSIZE 128 // power of 2. Warning: max 512 for a 512x512x512x4 bytes = 512MB world!
@@ -27,21 +30,6 @@
 #define GRIDSIZE3	(GRIDSIZE*GRIDSIZE*GRIDSIZE)
 
 namespace Tmpl8 {
-
-struct VoxelData
-{
-    float3 color;
-    enum class MaterialType
-    {
-        DIFFUSE,
-        REFLECTIVE
-    };
-    struct Texture
-    {
-        uint8_t* data;
-        int width, height, channels;
-    } texture;
-};
 
 class Ray
 {
@@ -122,6 +110,7 @@ public:
 
 	VoxelData voxel_data[256];
 
+	Lightsaber saber;
   private:
 	bool Setup3DDDA( const Ray& ray, DDAState& state ) const;
 };

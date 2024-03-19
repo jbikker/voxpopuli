@@ -41,6 +41,9 @@
     <ClCompile Include="template\tmpl8math.cpp" />
     <ClCompile Include="template\light.cpp" />
     <ClCompile Include="template\skydome\skydome.cpp" />
+    <ClCompile Include="template\lightsaber.cpp" />
+    <ClCompile Include="template\voxel_data.cpp" />
+    <ClCompile Include="template\BVH\bvh.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="renderer.h" />
@@ -95,6 +98,10 @@
     <ClInclude Include="template\tmpl8math.h" />
     <ClInclude Include="template\light.h" />
     <ClInclude Include="template\skydome\skydome.h" />
+    <ClInclude Include="template\lightsaber.h" />
+    <ClInclude Include="template\voxel_data.h" />
+    <ClInclude Include="template\BVH\bvh.h" />
+    <ClInclude Include="template\BVH\voxel_grid.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="template">

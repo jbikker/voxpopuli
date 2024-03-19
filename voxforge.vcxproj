@@ -132,7 +132,9 @@
     <ClCompile Include="lib\imgui\imgui_impl_opengl3.cpp" />
     <ClCompile Include="lib\imgui\imgui_tables.cpp" />
     <ClCompile Include="lib\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="template\BVH\bvh.cpp" />
     <ClCompile Include="template\light.cpp" />
+    <ClCompile Include="template\lightsaber.cpp" />
     <ClCompile Include="template\opencl.cpp" />
     <ClCompile Include="template\opengl.cpp" />
     <ClCompile Include="template\scene.cpp" />
@@ -144,6 +146,7 @@
     </ClCompile>
     <ClCompile Include="template\tmpl8math.cpp" />
     <ClCompile Include="renderer.cpp" />
+    <ClCompile Include="template\voxel_data.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="lib\imgui\imconfig.h" />
@@ -155,9 +158,12 @@
     <ClInclude Include="lib\imgui\imstb_rectpack.h" />
     <ClInclude Include="lib\imgui\imstb_textedit.h" />
     <ClInclude Include="lib\imgui\imstb_truetype.h" />
+    <ClInclude Include="template\BVH\bvh.h" />
+    <ClInclude Include="template\BVH\voxel_grid.h" />
     <ClInclude Include="template\camera.h" />
     <ClInclude Include="template\common.h" />
     <ClInclude Include="template\light.h" />
+    <ClInclude Include="template\lightsaber.h" />
     <ClInclude Include="template\opencl.h" />
     <ClInclude Include="template\opengl.h" />
     <ClInclude Include="template\precomp.h" />
@@ -166,6 +172,7 @@
     <ClInclude Include="template\surface.h" />
     <ClInclude Include="template\tmpl8math.h" />
     <ClInclude Include="renderer.h" />
+    <ClInclude Include="template\voxel_data.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="template\LICENSE" />

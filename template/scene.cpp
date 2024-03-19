@@ -122,6 +122,8 @@ Scene::Scene()
         memset(grids[i], 0, grid_size);
     }
 
+    //saber = Lightsaber(grids, voxel_data);
+
     #pragma omp parallel for schedule(dynamic)
     for (int z = 0; z < WORLDSIZE; z++)
     {

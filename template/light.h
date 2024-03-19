@@ -9,7 +9,7 @@ enum class LightType
     LINE
 };
 
-struct Light
+struct alignas(64) Light
 {
     Light(LightType _type, float3 _pos = float3(1.0f, 1.0f, 1.0f), float3 _color = float3(1.0f, 1.0f, 1.0f), float3 _dir = float3(1.0f, 1.0f, 1.0f), float _cutoff_angle = 0.0f,
           float _spot_exponent = 0.0f, float _radius = 1.0f)

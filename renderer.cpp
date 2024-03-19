@@ -30,7 +30,7 @@ float rad = 0.005f;
 
 float cyl_intersect(Ray& ray, float radius)
 {
-    // Capsule Intersection (Source: https://iquilezles.org/articles/intersectors/)
+    // Capsule Intersection (Source: https://iqules/intersectors/ilezles.org/artic)
     float3 ba = point_b - point_a; // BA vector
     float3 oa = ray.O - point_a;
     float baba = dot(ba, ba);
@@ -67,118 +67,61 @@ float cyl_intersect(Ray& ray, float radius)
     return -1.0f;
 }
 
-float3 light_color = float3(0.0f, 1.0f, 0.0f);
-
-float3 seg_proj(float3 a, float3 b, float3 p)
-{
-    return clamp(dot(p - a, b - a) / dot(b - a, b - a), 0.0f, 1.0f) * (b - a) + a;
-}
-
-float seg_dist(float3 a, float3 b, float3 p)
-{
-    return length(seg_proj(a, b, p) - p);
-}
-
-float flux_anti_derivative(float3 a, float3 b, float3 p, float t)
-{
-    float3 ab = b - a;
-    float3 pa = a - p;
-
-    float A = dot(ab, ab);
-    float B = dot(ab, pa);
-    float C = dot(pa, pa);
-
-    float discr = A * C - B * B;
-
-    if (discr <= 0.)
-        return 0.;
-
-    float denom = sqrt(A * C - B * B);
-    return atan2f((A * t + B), denom) / denom;
-}
-
-float flux(float3 a, float3 b, float3 p)
-{
-    return flux_anti_derivative(a, b, p, 1.) - flux_anti_derivative(a, b, p, 0.);
-}
-
-float inv_falloff(float x)
-{
-    float x_sq = x * x;
-    return (1.0 - x_sq) / (10.0 * x_sq + 1.0);
-}
-
-float3 get_sign(float3 D)
-{
-    if (D.y == 0.0f)
-    {
-        uint xsign = *(uint*)&D.x >> 31;
-        //uint ysign = *(uint*)&D.y >> 31;
-        uint zsign = *(uint*)&D.z >> 31;
-
-        return (float3((float)xsign * 2.0f - 1.0f, 0.0f, (float)zsign * 2.0f - 1.0f) + 1) * 0.5f;
-    }
-
-    uint xsign = *(uint*)&D.x >> 31;
-    uint ysign = *(uint*)&D.y >> 31;
-    uint zsign = *(uint*)&D.z >> 31;
-
-    return (float3((float)xsign * 2.0f - 1.0f, (float)ysign * 2.0f - 1.0f, (float)zsign * 2.0f - 1.0f) + 1) * 0.5f;
-}
+float3 light_color = float3(1.0f, 0.0f, 0.0f);
 
 // -----------------------------------------------------------
 // Evaluate light transport
 // -----------------------------------------------------------
 float3 Renderer::Trace(Ray& ray)
 {
-    
-
     float outer_rad = rad * 5.0f;
     float3 lightsaber_cont = 0.0f;
     float intensity = 0.0f;
     bool lightsaber_hit = false;
+    float lightsaber_t = 1e34f;
 
     if (activate_lightsaber)
     {
         float core_t = cyl_intersect(ray, rad);
         float outer_t = cyl_intersect(ray, outer_rad);
 
-        if (ray.t > outer_t)
+        float3 min, max;
+        if (point_a.y > point_b.y)
         {
-            float3 min, max;
-            if (point_a.y > point_b.y)
-            {
-                min = point_b;
-                max = point_a;
-            }
-            else
-            {
-                min = point_a;
-                max = point_b;
-            }
+            min = point_b;
+            max = point_a;
+        }
+        else
+        {
+            min = point_a;
+            max = point_b;
+        }
 
-            if (core_t >= 0.0f)
-            {
-                return float3(1.0f, 1.0f, 1.0f);
-            }
-            else if (outer_t >= 0.0f)
-            {
-                lightsaber_hit = true;
+        if (core_t >= 0.0f)
+        {
+            //return float3(1.0f, 1.0f, 1.0f);
+            lightsaber_t = core_t * 0.5f;
+            lightsaber_cont = 1.0f;
+            intensity = 1.0f;
+        }
+        else if (outer_t >= 0.0f)
+        {
+            lightsaber_hit = true;
 
-                float3 p = ray.O + outer_t * normalize(ray.D);
+            lightsaber_t = outer_t * 0.5f;
 
-                float y_diff = max.y - min.y;
-                float y_change = p.y - min.y;
-                float final_t = y_change / y_diff;
+            float3 p = ray.O + outer_t * normalize(ray.D);
 
-                float3 center = lerp(min, max, final_t);
+            float y_diff = max.y - min.y;
+            float y_change = p.y - min.y;
+            float final_t = y_change / y_diff;
 
-                float fact = std::max(1.0f - (length(p - center) / outer_rad), 0.0f);
+            float3 center = lerp(min, max, final_t);
 
-                lightsaber_cont = float3(0.0f, 1.0f, 0.0f) * fact;
-            }
+            float fact = std::max(1.0f - (length(p - center) / outer_rad), 0.0f);
 
-            if (lightsaber_cont.x > intensity)
+            lightsaber_cont = light_color * fact;
+
                 intensity = lightsaber_cont.x;
             if (lightsaber_cont.y > intensity)
                 intensity = lightsaber_cont.y;
@@ -193,15 +136,22 @@ float3 Renderer::Trace(Ray& ray)
     if (grid_view)
         return ray.steps / 64.0f;
 
-    if (ray.voxel == 0 /*&& !lightsaber_hit*/)
+    if (ray.voxel == 0)
         return skydome.render(ray) * (1.0f - intensity) + lightsaber_cont;
 
     float3 I = ray.O + (ray.t - 0.00001f) * ray.D;
     const float3 L = normalize(float3(1, 4, 0.5f));
     float3 N = ray.GetNormal();
-    float3 albedo = ray.GetAlbedo(scene.voxel_data) /*float3(1.0f)*/;
+    float3 albedo = /*ray.GetAlbedo(scene.voxel_data)*/ float3(1.0f);
+    
+    float3 final_color = /*albedo;*/ 0.0f;
 
-    float3 final_color = 0.0f;
+    /*if (ray.voxel == 220)
+    {
+        point_a = ray.O + ray.t * ray.D;
+        point_a += float3(0.02f, 0.1f, 0.0f);
+    }
+    point_b = point_a + float3(0.0f, 0.9f, 0.0f);*/
 
     //// Convert u, v to texture coordinates
     //VoxelData::Texture tex = scene.voxel_data[ray.voxel].texture;
@@ -375,6 +325,10 @@ float3 Renderer::Trace(Ray& ray)
     /* visualize normal */   // return (N + 1) * 0.5f;
     /* visualize distance */ // return float3( 1 / (1 + ray.t) );
     /* visualize albedo */ 
+    if (ray.t < lightsaber_t)
+    {
+        return final_color;
+    }
     return final_color * (1.0f - intensity) + lightsaber_cont;
 }
 
@@ -541,11 +495,13 @@ void Renderer::UI()
                 if (ImGui::CollapsingHeader(name.c_str()))
                 {
                     scene.has_changed = true;
-                    ImGui::ColorEdit3("Color", &lights[i].color.x, ImGuiColorEditFlags_Float);
+                    lights[i].color = light_color;
+                    ImGui::ColorEdit3("Color", &light_color.x, ImGuiColorEditFlags_Float);
                     if (ImGui::SmallButton("Remove"))
                         lights.erase(lights.begin() + i);
                 }
             }
+            break;
         default:
             break;
         }
