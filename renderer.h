@@ -2,6 +2,7 @@
 
 #include "light.h"
 #include "skydome/skydome.h"
+#include "BVH/bvh.h"
 
 namespace Tmpl8
 {
@@ -36,6 +37,9 @@ private:
     std::vector<Light> lights;
     
 	Skydome skydome;
+
+	Box* voxel_objects = nullptr;
+    BVH bvh;
 
 	bool grid_view = false;
 };

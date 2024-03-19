@@ -2,7 +2,7 @@
 
 #include "bvh.h"
 
-aabb calculate_bounds(Box* voxel_objects, uint node_idx, BVHNode* pool, uint* indices)
+void calculate_bounds(Box* voxel_objects, uint node_idx, BVHNode* pool, uint* indices)
 {
     BVHNode& node = pool[node_idx];
     node.bounds.bmin3 = float3(1e30f);
@@ -12,12 +12,8 @@ aabb calculate_bounds(Box* voxel_objects, uint node_idx, BVHNode* pool, uint* in
     {
         uint idx = indices[first + i];
         Box& leaf = voxel_objects[idx];
-        node.bounds.bmin3 = fminf(node.bounds.bmin3, leaf.min.x);
-        node.bounds.bmin3 = fminf(node.bounds.bmin3, leaf.min.y);
-        node.bounds.bmin3 = fminf(node.bounds.bmin3, leaf.min.z);
-        node.bounds.bmax3 = fmaxf(node.bounds.bmax3, leaf.max.x);
-        node.bounds.bmax3 = fmaxf(node.bounds.bmax3, leaf.max.y);
-        node.bounds.bmax3 = fmaxf(node.bounds.bmax3, leaf.max.z);
+        node.bounds.bmin3 = fminf(node.bounds.bmin3, leaf.min);
+        node.bounds.bmax3 = fmaxf(node.bounds.bmax3, leaf.max);
     }
 }
 
@@ -36,11 +32,11 @@ void BVH::construct_bvh(Box* voxel_objects)
     // Subdivide Root Node
     root->first = 0;
     root->count = N;
-    root->bounds = calculate_bounds(voxel_objects, root->first, pool, indices);
+    calculate_bounds(voxel_objects, root->first, pool, indices);
     root->subdivide(root->first, voxel_objects, pool, pool_ptr, indices, nodes_used);
 }
 
-bool intersect_voxel(const Ray& ray, Box& box)
+void intersect_voxel(Ray& ray, Box& box)
 {
     float3 b[2] = {box.min, box.max};
     // test if the ray intersects the box
@@ -60,28 +56,30 @@ bool intersect_voxel(const Ray& ray, Box& box)
         if (ray.t < tmin)
             goto miss;
         else
-            return true;
+        {
+            ray.t = tmin;
+            ray.steps++;
+            return;
+        }
 miss:
-    return false;
+    /*ray.t = 1e34f*/ return;
 }
 
-bool BVH::intersect_bvh(Box* voxel_objects, Ray& ray, const uint node_idx)
+void BVH::intersect_bvh(Box* voxel_objects, Ray& ray, const uint node_idx)
 {
     BVHNode& node = pool[node_idx];
     if (!intersect_aabb(ray, node.bounds.bmin3, node.bounds.bmax3))
-        return false;
+        return;
     if (node.is_leaf())
+    {
         for (uint i = 0; i < node.count; i++)
-            if (intersect_voxel(ray, voxel_objects[indices[node.first + i]]))
-                return true;
+            intersect_voxel(ray, voxel_objects[indices[node.first + i]]);
+    }
     else
     {
-        if (intersect_bvh(voxel_objects, ray, node.left))
-            return true;
-        if (intersect_bvh(voxel_objects, ray, node.left + 1))
-            return true;
+        intersect_bvh(voxel_objects, ray, node.left);
+        intersect_bvh(voxel_objects, ray, node.left + 1);
     }
-    return false;
 }
 
 bool BVH::intersect_aabb(const Ray& ray, const float3 bmin, const float3 bmax)

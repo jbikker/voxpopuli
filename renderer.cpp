@@ -18,6 +18,15 @@ void Renderer::Init()
         fclose(f);
     }
 
+    voxel_objects = new Box[N];
+    for (int i = 0; i < N; i++)
+    {
+        voxel_objects[i].min = float3(RandomFloat(), RandomFloat(), RandomFloat()) * i;
+        voxel_objects[i].max = voxel_objects[i].min + 1.0f;
+    }
+
+    bvh.construct_bvh(voxel_objects);
+
     skydome = Skydome();
 }
 
@@ -28,7 +37,7 @@ float3 point_a = 0.0f;
 float3 point_b = 0.0f;
 float rad = 0.005f;
 
-float cyl_intersect(Ray& ray, float radius)
+float capsule_intersect(Ray& ray, float radius)
 {
     // Capsule Intersection (Source: https://iqules/intersectors/ilezles.org/artic)
     float3 ba = point_b - point_a; // BA vector
@@ -82,8 +91,8 @@ float3 Renderer::Trace(Ray& ray)
 
     if (activate_lightsaber)
     {
-        float core_t = cyl_intersect(ray, rad);
-        float outer_t = cyl_intersect(ray, outer_rad);
+        float core_t = capsule_intersect(ray, rad);
+        float outer_t = capsule_intersect(ray, outer_rad);
 
         float3 min, max;
         if (point_a.y > point_b.y)
@@ -212,19 +221,19 @@ float3 Renderer::Trace(Ray& ray)
                 // Source: https://math.hws.edu/graphicsbook/c7/s2.html#webgl3d.2.6
                 float spot_factor = 1.0f;
 
-                float3 spot_dir = lights[i].dir;
-                float3 s_ray_dir = lights[i].pos - I;
+                float3 spot_dir = normalize(lights[i].dir);
+                float3 s_ray_dir = normalize(lights[i].pos - I);
 
-                float a = dot(N, normalize(s_ray_dir));
+                float a = dot(N, s_ray_dir);
                 if (a <= 0)
                     continue;
 
                 if (lights[i].cutoff_angle <= 0.0f)
                     continue;
 
-                float angle = dot(normalize(spot_dir), normalize(s_ray_dir));
+                float angle = dot(spot_dir, s_ray_dir);
 
-                if (angle >= lights[i].cutoff_angle)
+                if (angle >= lights[i].cutoff_angle)    
                     spot_factor = powf(angle, lights[i].spot_exponent); 
                 else
                     spot_factor = 0.0f;
@@ -259,7 +268,7 @@ float3 Renderer::Trace(Ray& ray)
             break;
             case LightType::AREA:
             {
-                // Soft Shadows
+                // Monte Carlo Integration
                 float randomised_f = RandomFloat();
 
                 float x = lights[i].radius * cosf(randomised_f) * sinf(randomised_f);
@@ -278,12 +287,15 @@ float3 Renderer::Trace(Ray& ray)
                 Ray shadow_ray = Ray(new_pos, -s_ray_dir, dist);
                 if (scene.IsOccluded(shadow_ray, GRIDLAYERS))
                     continue;
-                final_color += albedo * lights[i].color * falloff * angle;
+
+                const float pdf = PI * 4 * 2 * lights[i].radius;
+
+                final_color += albedo * lights[i].color * falloff * angle / pdf;
             }
             break;
             case LightType::LINE:
             {
-                // Soft Shadows
+                // Monte Carlo Integration
                 float randomised_f = RandomFloat();
 
                 float3 new_pos = lerp(point_a, point_b, randomised_f);
@@ -308,7 +320,8 @@ float3 Renderer::Trace(Ray& ray)
     }
 
     // Reflections (Source: https://jacco.ompf2.com/2022/05/27/how-to-build-a-bvh-part-8-whitted-style/)
-    /*float3 sec_D = ray.D - 2 * N * dot(N, ray.D);
+    float3 dir = normalize(ray.D);
+    float3 sec_D = dir - 2 * N * dot(N, dir);
     float3 sec_O = I + N * 0.001f;
 
     uint random_val = RandomUInt();
@@ -319,7 +332,7 @@ float3 Renderer::Trace(Ray& ray)
 
     if (secondary.depth >= 20)
         return float3(0.0f);
-    return Trace(secondary);*/
+    return Trace(secondary);
 
     // Ray shadow_ray = Ray(I, normalize(sun_pos - I));
     /* visualize normal */   // return (N + 1) * 0.5f;
@@ -353,22 +366,35 @@ void Renderer::Tick(float deltaTime)
         // trace a primary ray for each pixel on the line
         for (int x = 0; x < SCRWIDTH; x++)
         {
-            // Generate Random Offsets Within Each Pixel
-            float x_offset = Rand(1.0f) - 0.5f;
-            float y_offset = Rand(1.0f) - 0.5f;
+            //// Generate Random Offsets Within Each Pixel
+            //float x_offset = Rand(1.0f) - 0.5f;
+            //float y_offset = Rand(1.0f) - 0.5f;
 
-            // Calculate Sample Position Within The Pixel
-            float sample_x = (float)x + 0.5f + x_offset;
-            float sample_y = (float)y + 0.5f + y_offset;
+            //// Calculate Sample Position Within The Pixel
+            //float sample_x = (float)x + 0.5f + x_offset;
+            //float sample_y = (float)y + 0.5f + y_offset;
 
-            float4 p = float4(Trace(camera.GetPrimaryRay(sample_x, sample_y)), 0);
-            
-            if (scene.has_changed)
-                accumulator[x + y * SCRWIDTH] = p;
+            //float4 p = float4(Trace(camera.GetPrimaryRay(sample_x, sample_y)), 0);
+            //
+            //if (scene.has_changed)
+            //    accumulator[x + y * SCRWIDTH] = p;
+            //else
+            //    accumulator[x + y * SCRWIDTH] += p;
+            //
+            //screen->pixels[x + y * SCRWIDTH] = RGBF32_to_RGB8(&(accumulator[x + y * SCRWIDTH] / float(frames)));
+            Ray r = camera.GetPrimaryRay(x, y);
+
+            bvh.intersect_bvh(voxel_objects, r, 0);
+
+            if (r.t < 1e34f)
+            {
+                screen->pixels[x + y * SCRWIDTH] = RGBF32_to_RGB8(&float4(1.0f, 1.0f, 1.0f, 0.0f));
+                if (grid_view)
+                    screen->pixels[x + y * SCRWIDTH] = RGBF32_to_RGB8(&float4(r.steps / 32.0f, 0.0f));
+            }
+
             else
-                accumulator[x + y * SCRWIDTH] += p;
-            
-            screen->pixels[x + y * SCRWIDTH] = RGBF32_to_RGB8(&(accumulator[x + y * SCRWIDTH] / float(frames)));
+                screen->pixels[x + y * SCRWIDTH] = RGBF32_to_RGB8(&float4(0.0f, 0.0f, 0.0f, 0.0f));
         }
     }
 

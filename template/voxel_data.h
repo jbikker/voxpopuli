@@ -6,7 +6,7 @@ struct VoxelData
     enum class MaterialType
     {
         DIFFUSE,
-        REFLECTIVE
+        REFLECTIVE,
     };
     struct Texture
     {

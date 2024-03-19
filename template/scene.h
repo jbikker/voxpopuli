@@ -13,6 +13,7 @@
 // #define DOF
 
 // low-level / derived
+#define __INTEL_CPU__ 0
 #define WORLDSIZE2	(WORLDSIZE*WORLDSIZE)
 #define GRIDLAYERS 5
 #ifdef TWOLEVEL
