@@ -25,6 +25,18 @@ void Renderer::Init()
         voxel_objects[i].max = voxel_objects[i].min + 1.0f;
     }
 
+    /*for (int z = 0; z < N; z++)
+    {
+        for (int y = 0; y < N; y++)
+        {
+            for (int x = 0; x < N; x++)
+            {
+                voxel_objects[x + y * N + z * N * N].min = float3(x * 2.0f, y * 2.0f, z * 2.0f);
+                voxel_objects[x + y * N + z * N * N].max = voxel_objects[x + y * N + z * N * N].min + 1.0f;
+            }
+        }
+    }*/
+
     bvh.construct_bvh(voxel_objects);
 
     skydome = Skydome();
@@ -389,12 +401,13 @@ void Renderer::Tick(float deltaTime)
             if (r.t < 1e34f)
             {
                 screen->pixels[x + y * SCRWIDTH] = RGBF32_to_RGB8(&float4(1.0f, 1.0f, 1.0f, 0.0f));
-                if (grid_view)
-                    screen->pixels[x + y * SCRWIDTH] = RGBF32_to_RGB8(&float4(r.steps / 32.0f, 0.0f));
+                
             }
-
             else
                 screen->pixels[x + y * SCRWIDTH] = RGBF32_to_RGB8(&float4(0.0f, 0.0f, 0.0f, 0.0f));
+
+            if (grid_view)
+                screen->pixels[x + y * SCRWIDTH] = RGBF32_to_RGB8(&float4(r.steps / 64.0f, 0.0f));
         }
     }
 

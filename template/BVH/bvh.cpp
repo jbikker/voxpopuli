@@ -5,15 +5,15 @@
 void calculate_bounds(Box* voxel_objects, uint node_idx, BVHNode* pool, uint* indices)
 {
     BVHNode& node = pool[node_idx];
-    node.bounds.bmin3 = float3(1e30f);
-    node.bounds.bmax3 = float3(-1e30f);
+    node.min = float3(1e30f);
+    node.max = float3(-1e30f);
 
-    for (uint first = node.first, i = 0; i < node.count; i++)
+    for (uint first = node.left_first, i = 0; i < node.count; i++)
     {
         uint idx = indices[first + i];
         Box& leaf = voxel_objects[idx];
-        node.bounds.bmin3 = fminf(node.bounds.bmin3, leaf.min);
-        node.bounds.bmax3 = fmaxf(node.bounds.bmax3, leaf.max);
+        node.min = fminf(node.min, leaf.min);
+        node.max = fmaxf(node.max, leaf.max);
     }
 }
 
@@ -25,19 +25,21 @@ void BVH::construct_bvh(Box* voxel_objects)
         indices[i] = i;
 
     // Allocate BVH Root Node
-    pool = new BVHNode[N * 2 - 1];
+    pool = new BVHNode[N * 2];
     root = &pool[0];
     pool_ptr = 2;
 
     // Subdivide Root Node
-    root->first = 0;
+    root->left_first = 0;
     root->count = N;
-    calculate_bounds(voxel_objects, root->first, pool, indices);
-    root->subdivide(root->first, voxel_objects, pool, pool_ptr, indices, nodes_used);
+    calculate_bounds(voxel_objects, root->left_first, pool, indices);
+    root->subdivide(root->left_first, voxel_objects, pool, pool_ptr, indices, nodes_used);
 }
 
 void intersect_voxel(Ray& ray, Box& box)
 {
+    //ray.steps++;
+
     float3 b[2] = {box.min, box.max};
     // test if the ray intersects the box
     const int signx = ray.D.x < 0, signy = ray.D.y < 0, signz = ray.D.z < 0;
@@ -58,7 +60,6 @@ void intersect_voxel(Ray& ray, Box& box)
         else
         {
             ray.t = tmin;
-            ray.steps++;
             return;
         }
 miss:
@@ -67,68 +68,139 @@ miss:
 
 void BVH::intersect_bvh(Box* voxel_objects, Ray& ray, const uint node_idx)
 {
-    BVHNode& node = pool[node_idx];
-    if (!intersect_aabb(ray, node.bounds.bmin3, node.bounds.bmax3))
-        return;
-    if (node.is_leaf())
+    BVHNode* node = &pool[node_idx], *stack[64];
+    uint stack_ptr = 0;
+
+    while (1)
     {
-        for (uint i = 0; i < node.count; i++)
-            intersect_voxel(ray, voxel_objects[indices[node.first + i]]);
-    }
-    else
-    {
-        intersect_bvh(voxel_objects, ray, node.left);
-        intersect_bvh(voxel_objects, ray, node.left + 1);
+        float t = ray.t;
+        ray.steps++;
+
+        if (node->is_leaf())
+        {
+            for (uint i = 0; i < node->count; i++)
+                intersect_voxel(ray, voxel_objects[indices[node->left_first + i]]);
+            if (stack_ptr == 0)
+                break;
+            else
+                node = stack[--stack_ptr];
+
+            continue;
+        }
+        BVHNode* child1 = &pool[node->left_first];
+        BVHNode* child2 = &pool[node->left_first + 1];
+        float dist1 = intersect_aabb(ray, child1->min, child1->max);
+        float dist2 = intersect_aabb(ray, child2->min, child2->max);
+        if (dist1 > dist2)
+        {
+            swap(dist1, dist2);
+            swap(child1, child2);
+        }
+        if (dist1 == 1e34f)
+        {
+            if (stack_ptr == 0)
+                break;
+            else
+                node = stack[--stack_ptr];
+        }
+        else
+        {
+            node = child1;
+            if (dist2 != 1e34f)
+                stack[stack_ptr++] = child2;
+        }
     }
 }
 
-bool BVH::intersect_aabb(const Ray& ray, const float3 bmin, const float3 bmax)
+float BVH::intersect_aabb(const Ray& ray, const float3 bmin, const float3 bmax)
 {
-    float tx1 = (bmin.x - ray.O.x) / ray.D.x, tx2 = (bmax.x - ray.O.x) / ray.D.x;
+    float tx1 = (bmin.x - ray.O.x) * ray.rD.x, tx2 = (bmax.x - ray.O.x) * ray.rD.x;
     float tmin = min(tx1, tx2), tmax = max(tx1, tx2);
-    float ty1 = (bmin.y - ray.O.y) / ray.D.y, ty2 = (bmax.y - ray.O.y) / ray.D.y;
+    float ty1 = (bmin.y - ray.O.y) * ray.rD.y, ty2 = (bmax.y - ray.O.y) * ray.rD.y;
     tmin = max(tmin, min(ty1, ty2)), tmax = min(tmax, max(ty1, ty2));
-    float tz1 = (bmin.z - ray.O.z) / ray.D.z, tz2 = (bmax.z - ray.O.z) / ray.D.z;
+    float tz1 = (bmin.z - ray.O.z) * ray.rD.z, tz2 = (bmax.z - ray.O.z) * ray.rD.z;
     tmin = max(tmin, min(tz1, tz2)), tmax = min(tmax, max(tz1, tz2));
-    return tmax >= tmin && tmin < ray.t && tmax > 0;
+    if (tmax >= tmin && tmin < ray.t && tmax > 0)
+        return tmin;
+    else
+        return 1e34f;
+}
+
+float evaluate_sah(Box* voxel_objects, uint* indices, BVHNode& node, int axis, float pos)
+{
+    aabb left_box, right_box;
+    int left_count = 0, right_count = 0;
+    for (uint i = 0; i < node.count; i++)
+    {
+        Box& box = voxel_objects[indices[node.left_first + i]];
+        if (box.get_center()[axis] < pos)
+        {
+            left_count++;
+            left_box.Grow(box.max);
+            left_box.Grow(box.min);
+        }
+        else
+        {
+            right_count++;
+            right_box.Grow(box.max);
+            right_box.Grow(box.min);
+        }
+    }
+    float cost = left_count * left_box.Area() + right_count * right_box.Area();
+    return cost > 0 ? cost : 1e34f;
 }
 
 void BVHNode::subdivide(uint node_idx, Box* voxel_objects, BVHNode* pool, uint pool_ptr, uint* indices, uint& nodes_used)
 {
     BVHNode& node = pool[node_idx];
-    if (node.count < 3)
+
+    // determine split axis using Surface Area Heuristic
+    int best_axis = -1;
+    float best_pos = 0.0f, best_cost = 1e34f;
+
+    for (int axis = 0; axis < 3; axis++)
+    {
+        for (uint i = 0; i < node.count; i++)
+        {
+            Box& box = voxel_objects[indices[node.left_first + i]];
+            float candidate_pos = box.get_center()[axis];
+            float cost = evaluate_sah(voxel_objects, indices, node, axis, candidate_pos);
+            if (cost < best_cost)
+                best_pos = candidate_pos, best_axis = axis, best_cost = cost;
+        }
+    }
+    int axis = best_axis;
+    float split_pos = best_pos;
+    
+    float3 e = node.max - node.min;
+    float parent_area = e.x * e.y + e.y * e.z + e.z * e.x;
+    float parent_cost = node.count * parent_area;
+
+    if (best_cost >= parent_cost)
         return;
 
-    // determine split axis and position
-    float3 extent = node.bounds.bmax3 - node.bounds.bmin3;
-    int axis = 0;
-    if (extent.y > extent.x)
-        axis = 1;
-    if (extent.z > extent[axis])
-        axis = 2;
-    float splitPos = node.bounds.bmin3[axis] + extent[axis] * 0.5f;
     // in-place partition
-    int i = node.first;
+    int i = node.left_first;
     int j = i + node.count - 1;
     while (i <= j)
     {
-        if (voxel_objects[indices[i]].get_center()[axis] < splitPos)
+        if (voxel_objects[indices[i]].get_center()[axis] < split_pos)
             i++;
         else
             swap(indices[i], indices[j--]);
     }
     // abort split if one of the sides is empty
-    int leftCount = i - node.first;
+    int leftCount = i - node.left_first;
     if (leftCount == 0 || leftCount == node.count)
         return;
     // create child nodes
     int leftChildIdx = nodes_used++;
     int rightChildIdx = nodes_used++;
-    pool[leftChildIdx].first = node.first;
+    pool[leftChildIdx].left_first = node.left_first;
     pool[leftChildIdx].count = leftCount;
-    pool[rightChildIdx].first = i;
+    pool[rightChildIdx].left_first = i;
     pool[rightChildIdx].count = node.count - leftCount;
-    node.left = leftChildIdx;
+    node.left_first = leftChildIdx;
     node.count = 0;
     calculate_bounds(voxel_objects, leftChildIdx, pool, indices);
     calculate_bounds(voxel_objects, rightChildIdx, pool, indices);
