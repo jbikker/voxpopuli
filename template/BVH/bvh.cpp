@@ -89,10 +89,10 @@ void BVH::intersect_bvh(Box* voxel_objects, Ray& ray, const uint node_idx)
         }
         BVHNode* child1 = &pool[node->left_first];
         BVHNode* child2 = &pool[node->left_first + 1];
-#if _M_AMD64
+#if AMD_CPU
         float dist1 = intersect_aabb(ray, child1->min, child1->max);
         float dist2 = intersect_aabb(ray, child2->min, child2->max);
-#elif _M_IX86
+#else 
         float dist1 = intersect_aabb_sse(ray, child1->min4, child1->max4);
         float dist2 = intersect_aabb_sse(ray, child2->min4, child2->max4);
 #endif
@@ -118,7 +118,7 @@ void BVH::intersect_bvh(Box* voxel_objects, Ray& ray, const uint node_idx)
         }
     }
 }
-#if _M_AMD64
+#if AMD_CPU
 float BVH::intersect_aabb(const Ray& ray, const float3 bmin, const float3 bmax)
 {
     float tx1 = (bmin.x - ray.O.x) * ray.rD.x, tx2 = (bmax.x - ray.O.x) * ray.rD.x;
@@ -132,7 +132,7 @@ float BVH::intersect_aabb(const Ray& ray, const float3 bmin, const float3 bmax)
     else
         return 1e34f;
 }
-#elif _M_IX86
+#else
 float BVH::intersect_aabb_sse(const Ray& ray, const __m128 bmin4, const __m128 bmax4)
 {
     static __m128 mask4 = _mm_cmpeq_ps(_mm_setzero_ps(), _mm_set_ps(1.0f, 0.0f, 0.0f, 0.0f));

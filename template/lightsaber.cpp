@@ -45,7 +45,7 @@ Lightsaber::Lightsaber(uint8_t** grids, VoxelData* voxel_data)
                 for (size_t i = 0; i < GRIDLAYERS; i++)
                 {
                     uint8_t b = (1 << i);
-                #if INTEL_CPU
+                #if !AMD_CPU
                     grids[i][morton_encode(floor(y / b), floor(z / b), floor(x / b))] = voxel_index;
                 #else
                     grids[i][(x / b) + (y / b) * (GRIDSIZE / b) + (z / b) * (GRIDSIZE / b) * (GRIDSIZE / b)] = voxel_index;

@@ -13,7 +13,8 @@
 // #define DOF
 
 // low-level / derived
-#define INTEL_CPU 1
+#define AMD_CPU 1
+
 #define WORLDSIZE2	(WORLDSIZE*WORLDSIZE)
 #define GRIDLAYERS 5
 #ifdef TWOLEVEL
@@ -58,12 +59,12 @@ public:
 	float GetRefractivity( const float3& I ) const; // TODO: implement
 	float3 GetAbsorption( const float3& I ) const; // TODO: implement
 	// ray data
-#if _M_AMD64
+#if AMD_CPU
     float3 O;             // ray origin
     float3 rD;            // reciprocal ray direction
     float3 D = float3(0); // ray direction
     float t = 1e34f;      // ray length
-#elif _M_IX86
+#else
 	union { struct { float3 O; float dummy1; }; __m128 O4; };
 	union { struct { float3 D; float dummy2; }; __m128 D4; };
 	union { struct { float3 rD; float dummy3; }; __m128 rD4; };
