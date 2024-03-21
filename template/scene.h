@@ -58,11 +58,20 @@ public:
 	float GetRefractivity( const float3& I ) const; // TODO: implement
 	float3 GetAbsorption( const float3& I ) const; // TODO: implement
 	// ray data
-	float3 O;					// ray origin
-	float3 rD;					// reciprocal ray direction
-	float3 D = float3( 0 );		// ray direction
+#if _M_AMD64
+    float3 O;             // ray origin
+    float3 rD;            // reciprocal ray direction
+    float3 D = float3(0); // ray direction
+    float t = 1e34f;      // ray length
+#elif _M_IX86
+	union { struct { float3 O; float dummy1; }; __m128 O4; };
+	union { struct { float3 D; float dummy2; }; __m128 D4; };
+	union { struct { float3 rD; float dummy3; }; __m128 rD4; };
+	float t = 1e34f;
+#endif
+	
     float3 I;
-	float t = 1e34f;			// ray length
+	
 	float3 Dsign = float3( 1 );	// inverted ray direction signs, -1 or 1
 	uint8_t voxel = 0;			// Voxel ID
     int depth = 0;
