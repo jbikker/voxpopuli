@@ -13,7 +13,7 @@
 // #define DOF
 
 // low-level / derived
-#define AMD_CPU 1
+#define AMD_CPU 0
 
 #define WORLDSIZE2	(WORLDSIZE*WORLDSIZE)
 #define GRIDLAYERS 5

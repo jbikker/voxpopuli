@@ -134,7 +134,7 @@ float BVH::intersect_aabb(const Ray& ray, const float3 bmin, const float3 bmax)
 float BVH::intersect_aabb_sse(const Ray& ray, const __m128 bmin4, const __m128 bmax4)
 {
     //static __m128 mask4 = _mm_cmpeq_ps(_mm_setzero_ps(), _mm_set_ps(1, 0, 0, 0));
-    const __m128i imask4 = _mm_set_epi32(0, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF);
+    /*const __m128i imask4 = _mm_set_epi32(0, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF);
     const __m128 mask4 = (__m128&)imask4;
     __m128 t1 = _mm_mul_ps(_mm_sub_ps(_mm_and_ps(bmin4, mask4), ray.O4), ray.rD4);
     __m128 t2 = _mm_mul_ps(_mm_sub_ps(_mm_and_ps(bmax4, mask4), ray.O4), ray.rD4);
@@ -144,7 +144,17 @@ float BVH::intersect_aabb_sse(const Ray& ray, const __m128 bmin4, const __m128 b
     if (tmax >= tmin && tmin < ray.t && tmax > 0)
         return tmin;
     else
-        return 1e34f;
+        return 1e34f;*/
+
+    /* idea to use fmsub to save 1 instruction came from <http://www.joshbarczak.com/blog/?p=787> */
+    const __m128 rd = _mm_mul_ps(ray.O4, ray.rD4); /* You can even cache this so you only have to compute it once :) */
+    const __m128 t1 = _mm_fmsub_ps(bmin4, ray.rD4, rd);
+    const __m128 t2 = _mm_fmsub_ps(bmax4, ray.rD4, rd);
+    const __m128 vmax4 = _mm_max_ps(t1, t2), vmin4 = _mm_min_ps(t1, t2);
+    const float tmax = min(vmax4.m128_f32[0], min(vmax4.m128_f32[1], vmax4.m128_f32[2]));
+    const float tmin = max(vmin4.m128_f32[0], max(vmin4.m128_f32[1], vmin4.m128_f32[2]));
+    const bool hit = (tmax > 0 && tmax >= tmin);
+    return hit ? tmin : 1e34f;
 }
 #endif
 
