@@ -14,10 +14,10 @@ struct BVHNode
     void subdivide(uint node_idx, Box* voxel_objects, BVHNode* pool, uint pool_ptr, uint* indices, uint& nodes_used);
     bool is_leaf() const { return count > 0; }
 
-#if _M_AMD64 
+#if !INTEL_CPU 
     float3 min, max;
     uint left_first, count;
-#elif _M_IX86
+#else
     union {
         struct
         {
@@ -43,9 +43,9 @@ class BVH
     void construct_bvh(Box* voxel_objects);
 
     void intersect_bvh(Box* voxel_objects, Ray& ray, const uint node_idx);
-#if _M_AMD64
+#if !INTEL_CPU
     float intersect_aabb(const Ray& ray, const float3 bmin, const float3 bmax);
-#elif _M_IX86
+#else
     float intersect_aabb_sse(const Ray& ray, const __m128 bmin4, const __m128 bmax4);
 #endif
 
