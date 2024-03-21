@@ -49,6 +49,12 @@ public:
         uint zsign = *(uint*)&D.z >> 31;
 
 		Dsign = (float3((float)xsign * 2.0f - 1.0f, (float)ysign * 2.0f - 1.0f, (float)zsign * 2.0f - 1.0f) + 1) * 0.5f;
+
+#if !AMD_CPU
+        dummy1 = 0.0f;
+        dummy2 = 0.0f;
+        dummy3 = 0.0f;
+#endif
 	}
 	float3 IntersectionPoint() const { return O + t * D; }
 	float3 GetNormal() const;

@@ -96,8 +96,6 @@ void BVH::intersect_bvh(Box* voxel_objects, Ray& ray, const uint node_idx)
         float dist1 = intersect_aabb_sse(ray, child1->min4, child1->max4);
         float dist2 = intersect_aabb_sse(ray, child2->min4, child2->max4);
 #endif
-
-        
         if (dist1 > dist2)
         {
             swap(dist1, dist2);
@@ -135,7 +133,9 @@ float BVH::intersect_aabb(const Ray& ray, const float3 bmin, const float3 bmax)
 #else
 float BVH::intersect_aabb_sse(const Ray& ray, const __m128 bmin4, const __m128 bmax4)
 {
-    static __m128 mask4 = _mm_cmpeq_ps(_mm_setzero_ps(), _mm_set_ps(1.0f, 0.0f, 0.0f, 0.0f));
+    //static __m128 mask4 = _mm_cmpeq_ps(_mm_setzero_ps(), _mm_set_ps(1, 0, 0, 0));
+    const __m128i imask4 = _mm_set_epi32(0, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF);
+    const __m128 mask4 = (__m128&)imask4;
     __m128 t1 = _mm_mul_ps(_mm_sub_ps(_mm_and_ps(bmin4, mask4), ray.O4), ray.rD4);
     __m128 t2 = _mm_mul_ps(_mm_sub_ps(_mm_and_ps(bmax4, mask4), ray.O4), ray.rD4);
     __m128 vmax4 = _mm_max_ps(t1, t2), vmin4 = _mm_min_ps(t1, t2);
@@ -144,7 +144,7 @@ float BVH::intersect_aabb_sse(const Ray& ray, const __m128 bmin4, const __m128 b
     if (tmax >= tmin && tmin < ray.t && tmax > 0)
         return tmin;
     else
-        return 1e30f;
+        return 1e34f;
 }
 #endif
 
