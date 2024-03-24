@@ -1,6 +1,6 @@
 #pragma once
 
-constexpr int N = 512; // Amount of Voxel Models in the game
+constexpr int N = 16; // Amount of Voxel Models in the game
 
 struct alignas(32) Box
 {

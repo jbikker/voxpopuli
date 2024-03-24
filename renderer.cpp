@@ -18,14 +18,14 @@ void Renderer::Init()
         fclose(f);
     }
 
-    voxel_objects = new Box[N];
-    for (int i = 0; i < N; i++)
+    voxel_objects = new Box[N * N * N];
+    /*for (int i = 0; i < N; i++)
     {
         voxel_objects[i].min = float3(RandomFloat(), RandomFloat(), RandomFloat()) * i;
         voxel_objects[i].max = voxel_objects[i].min + 1.0f;
-    }
+    }*/
 
-    /*for (int z = 0; z < N; z++)
+    for (int z = 0; z < N; z++)
     {
         for (int y = 0; y < N; y++)
         {
@@ -35,7 +35,7 @@ void Renderer::Init()
                 voxel_objects[x + y * N + z * N * N].max = voxel_objects[x + y * N + z * N * N].min + 1.0f;
             }
         }
-    }*/
+    }
 
     bvh.construct_bvh(voxel_objects);
 

@@ -13,7 +13,7 @@
 // #define DOF
 
 // low-level / derived
-#define AMD_CPU 0
+#define AMD_CPU 1
 
 #define WORLDSIZE2	(WORLDSIZE*WORLDSIZE)
 #define GRIDLAYERS 5
@@ -111,7 +111,7 @@ public:
 		uint X, Y, Z;			// 12 bytes
 		float t;				// 4 bytes
 		float3 tdelta;
-		int scale = 0;		// 16 bytes
+		int scale = 0;			// 16 bytes
 		float3 tmax;
 		float dummy2 = 0;		// 16 bytes, 64 bytes in total
 	};
