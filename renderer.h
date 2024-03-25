@@ -18,7 +18,15 @@ public:
 	void Shutdown();
 	// input handling
 	void MouseUp( int button ) { /* implement if you want to detect mouse button presses */ }
-	void MouseDown( int button ) { /* implement if you want to detect mouse button presses */ }
+	void MouseDown( int button ) 
+	{ 
+		if (ImGui::GetIO().WantCaptureMouse)
+            return;
+
+		Ray ray = camera.GetPrimaryRay(float(mousePos.x), float(mousePos.y));
+        bvh.intersect_bvh(voxel_objects, ray, 0);
+
+	}
 	void MouseMove( int x, int y ) { mousePos.x = x, mousePos.y = y; }
 	void MouseWheel( float y ) { /* implement if you want to handle the mouse wheel */ }
 	void KeyUp( int key ) { /* implement if you want to handle keys */ }

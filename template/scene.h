@@ -100,22 +100,23 @@ public:
 	float Intersect( const Ray& ray ) const;
 	bool Contains( const float3& pos ) const;
 	float3 b[2];
+    //float3 min, max;
+};
+
+struct DDAState
+{
+    int3 step;    // 16 bytes
+    uint X, Y, Z; // 12 bytes
+    float t;      // 4 bytes
+    float3 tdelta;
+    int scale = 0; // 16 bytes
+    float3 tmax;
+    float dummy2 = 0; // 16 bytes, 64 bytes in total
 };
 
 class Scene
 {
 public:
-	struct DDAState
-	{
-		int3 step;				// 16 bytes
-		uint X, Y, Z;			// 12 bytes
-		float t;				// 4 bytes
-		float3 tdelta;
-		int scale = 0;			// 16 bytes
-		float3 tmax;
-		float dummy2 = 0;		// 16 bytes, 64 bytes in total
-	};
-	
 	Scene();
     void FindNearest( Ray& ray, const int layer ) const;
 	bool IsOccluded( const Ray& ray, const int layer ) const;

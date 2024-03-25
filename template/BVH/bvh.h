@@ -1,12 +1,20 @@
 #pragma once
 
-constexpr int N = 16; // Amount of Voxel Models in the game
+constexpr int N = 8; // Amount of Voxel Models in the game
 
 struct alignas(32) Box
 {
     float3 min, max;
+    uint8_t* grid;
+    int size;
 
-    float3 get_center() const { return max - (max - min) * 0.5f; }
+    float3 get_center() const { return (max + min) * 0.5f; }
+    bool contains(const float3& pos) const
+    {
+        // test if pos is inside the cube
+        return pos.x >= min.x && pos.y >= min.y && pos.z >= min.z && pos.x <= max.x && pos.y <= max.y && pos.z <= max.z;
+    }
+    void populate_grid();
 };
 
 struct BVHNode
@@ -43,11 +51,15 @@ class BVH
     void construct_bvh(Box* voxel_objects);
 
     void intersect_bvh(Box* voxel_objects, Ray& ray, const uint node_idx);
+    void intersect_voxel(Ray& ray, Box& box);
 #if AMD_CPU
     float intersect_aabb(const Ray& ray, const float3 bmin, const float3 bmax);
 #else
     float intersect_aabb_sse(const Ray& ray, const __m128 bmin4, const __m128 bmax4);
 #endif
+
+    bool setup_3ddda(const Ray& ray, DDAState& state, Box& box);
+    void find_nearest(Ray& ray, Box& box);
 
     uint* indices;
     BVHNode* pool;
