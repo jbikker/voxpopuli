@@ -1,12 +1,13 @@
 #pragma once
 
-constexpr int N = 8; // Amount of Voxel Models in the game
+constexpr int N = 4; // Amount of Voxel Models in the game
 
 struct alignas(32) Box
 {
-    float3 min, max;
+    float3 min = 0.0f, max = 1.0f;
     uint8_t* grid;
     int size;
+    Transform model;
 
     float3 get_center() const { return (max + min) * 0.5f; }
     bool contains(const float3& pos) const

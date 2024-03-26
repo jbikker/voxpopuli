@@ -5,6 +5,10 @@ static float3 uint_to_rgb(uint value);
 
 float3 Ray::GetNormal() const
 {
+
+    if (N.x != 0.0f && N.y != 0.0f && N.z != 0.0f)
+        return N;
+
     // return the voxel normal at the nearest intersection
     const float3 I1 = (O + t * D) * WORLDSIZE; // our scene size is (1,1,1), so this scales each voxel to (1,1,1)
     const float3 fG = fracf(I1);

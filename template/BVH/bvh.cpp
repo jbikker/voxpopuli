@@ -171,6 +171,17 @@ bool BVH::setup_3ddda(const Ray& ray, DDAState& state, Box& box)
             return false; // ray misses voxel data entirely
     }
 
+    // setup amanatides & woo - assume world is 1x1x1, from (0,0,0) to (1,1,1)
+    //const float cellSize = 1.0f / box.size;
+    //state.step = make_int3(1 - ray.Dsign * 2);
+    //const float3 posInGrid = box.size * (ray.O + (state.t + 0.00005f) * ray.D);
+    //const float3 gridPlanes = (ceilf(posInGrid) - ray.Dsign) * cellSize;
+    //const int3 P = clamp(make_int3(posInGrid), 0, box.size - 1);
+    //state.X = P.x, state.Y = P.y, state.Z = P.z;
+    //state.tdelta = cellSize * float3(state.step) * ray.rD;
+    //state.tmax = (gridPlanes - ray.O) * ray.rD;
+    //// proceed with traversal
+    //return true;
 
     // expressed in world space
     const float3 voxelMinBounds = box.min;
@@ -191,20 +202,35 @@ bool BVH::setup_3ddda(const Ray& ray, DDAState& state, Box& box)
 
 void BVH::find_nearest(Ray& ray, Box& box)
 {
-    // setup Amanatides & Woo grid traversal
+    // Save Initial Ray
+    Ray initial_ray = ray;
+
+    mat4 model_mat = box.model.matrix();
+    mat4 inv_model_mat = model_mat.Inverted();
+
+    // Transform the Ray
+    ray.O = TransformPosition(ray.O, inv_model_mat);
+    ray.D = TransformVector(ray.D, inv_model_mat);
+    ray.rD = float3(1.0f / ray.D.x, 1.0f / ray.D.y, 1.0f / ray.D.z);
+    ray.CalculateDsign();
+
+    // Setup Amanatides & Woo Grid Traversal
 	DDAState s;
     if (!setup_3ddda(ray, s, box))
         return;
-	// start stepping
-	while (1)
+	// Start Stepping
+	while (s.t <= ray.t)
 	{
-        const uint8_t cell = box.grid[s.X + s.Y * box.size + s.Z * box.size * box.size];
-        //const uint8_t cell = box.grid[(s.Z * box.size * box.size) + (s.Y * box.size) + s.X];
-        //const uint8_t cell = box.grid[s.X + s.Y * box.size + s.Z * box.size * box.size];
+        const uint8_t cell = box.grid[(s.Z * box.size * box.size) + (s.Y * box.size) + s.X];
+
 		if (cell)
 		{
 			ray.t = s.t;
 			ray.voxel = cell;
+
+            // If the Ray Intersected With a Primitive Within The BVH
+            // Correct the Normal Based on The Transformation
+            ray.N = normalize(TransformVector(ray.N, model_mat));
 			break;
 		}
 		if (s.tmax.x < s.tmax.y)
@@ -216,8 +242,13 @@ void BVH::find_nearest(Ray& ray, Box& box)
 		{
 			if (s.tmax.y < s.tmax.z) { s.t = s.tmax.y, s.Y += s.step.y; if (s.Y >= box.size) break; s.tmax.y += s.tdelta.y; }
 			else { s.t = s.tmax.z, s.Z += s.step.z; if (s.Z >= box.size) break; s.tmax.z += s.tdelta.z; }
-		}
+		}  
 	}
+    // Restore the Original Ray's Transform
+    ray.O = initial_ray.O;
+    ray.D = initial_ray.D;
+    ray.rD = initial_ray.rD;
+    ray.Dsign = initial_ray.Dsign;
 }
 
 float evaluate_sah(Box* voxel_objects, uint* indices, BVHNode& node, int axis, float pos)

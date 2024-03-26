@@ -33,6 +33,30 @@
 
 namespace Tmpl8 {
 
+struct Transform // Special Thanks to Lynn
+{
+    Transform() = default;
+    Transform(const float3& _translation, const float3& _rotation, const float3& _scale) : translation(_translation), rotation(_rotation), scale(_scale) {}\
+    static float deg_to_rad(float degrees) { return degrees * (PI / 180.0f); }
+
+    mat4 matrix() const
+    {
+        const mat4 t{mat4::Translate(translation)};
+        const mat4 rX{mat4::RotateX(deg_to_rad(rotation.x))};
+        const mat4 rY{mat4::RotateY(deg_to_rad(rotation.y))};
+        const mat4 rZ{mat4::RotateZ(deg_to_rad(rotation.z))};
+        const mat4 r{rX * rY * rZ};
+        const mat4 s{mat4::Scale(scale)};
+
+        return (t * r * s);
+    }
+
+    float3 translation = 0.0f;
+    float3 rotation = 0.0f; // Degrees
+    float3 scale = 1.0f;
+};
+
+
 class Ray
 {
 public:
@@ -44,11 +68,7 @@ public:
 		// TODO: prevent NaNs - or don't
 		rD = float3( 1 / D.x, 1 / D.y, 1 / D.z );
 
-        uint xsign = *(uint*)&D.x >> 31;
-        uint ysign = *(uint*)&D.y >> 31;
-        uint zsign = *(uint*)&D.z >> 31;
-
-		Dsign = (float3((float)xsign * 2.0f - 1.0f, (float)ysign * 2.0f - 1.0f, (float)zsign * 2.0f - 1.0f) + 1) * 0.5f;
+        CalculateDsign();
 
 #if !AMD_CPU
         dummy1 = 0.0f;
@@ -60,16 +80,25 @@ public:
 	float3 GetNormal() const;
     float3 GetAlbedo(VoxelData* voxel_data) const;
     float2 GetUV() const;
+	void CalculateDsign() 
+	{
+        uint xsign = *(uint*)&D.x >> 31;
+        uint ysign = *(uint*)&D.y >> 31;
+        uint zsign = *(uint*)&D.z >> 31;
+
+        Dsign = (float3((float)xsign * 2.0f - 1.0f, (float)ysign * 2.0f - 1.0f, (float)zsign * 2.0f - 1.0f) + 1) * 0.5f;
+	}
 	
 	float GetReflectivity( const float3& I ) const; // TODO: implement
 	float GetRefractivity( const float3& I ) const; // TODO: implement
 	float3 GetAbsorption( const float3& I ) const; // TODO: implement
 	// ray data
 #if AMD_CPU
-    float3 O;             // ray origin
-    float3 rD;            // reciprocal ray direction
-    float3 D = float3(0); // ray direction
-    float t = 1e34f;      // ray length
+    float3 O;				 // ray origin
+    float3 rD;				 // reciprocal ray direction
+    float3 D = float3(0.0f); // ray direction
+    float3 N = float3(0.0f); // ray normal
+    float t = 1e34f;         // ray length
 #else
 	union { struct { float3 O; float dummy1; }; __m128 O4; };
 	union { struct { float3 D; float dummy2; }; __m128 D4; };
