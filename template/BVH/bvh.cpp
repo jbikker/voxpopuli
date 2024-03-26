@@ -15,8 +15,10 @@ void calculate_bounds(Box* voxel_objects, uint node_idx, BVHNode* pool, uint* in
     {
         uint idx = indices[first + i];
         Box& leaf = voxel_objects[idx];
-        node.min = fminf(node.min, leaf.min);
-        node.max = fmaxf(node.max, leaf.max);
+        //node.min = fminf(node.min, leaf.min);
+        //node.max = fmaxf(node.max, leaf.max);
+        node.min = fminf(node.min, TransformPosition(leaf.min, leaf.model.matrix()));
+        node.max = fmaxf(node.max, TransformPosition(leaf.max, leaf.model.matrix()));
     }
 }
 
