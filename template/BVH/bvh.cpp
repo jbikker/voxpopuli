@@ -171,6 +171,7 @@ bool BVH::setup_3ddda(const Ray& ray, DDAState& state, Box& box)
             return false; // ray misses voxel data entirely
     }
 
+
     // expressed in world space
     const float3 voxelMinBounds = box.min;
     const float3 voxelMaxBounds = box.max;
