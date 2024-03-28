@@ -5,20 +5,21 @@
 #define OGT_VOX_IMPLEMENTATION
 #include "lib/ogt_vox.h"
 
-void calculate_bounds(Box* voxel_objects, uint node_idx, BVHNode* pool, uint* indices)
+void calculate_bounds(BVHNode& node, Box* voxel_objects, uint* indices)
 {
-    BVHNode& node = pool[node_idx];
-    node.min = float3(1e30f);
-    node.max = float3(-1e30f);
+    node.min = float3(1e34f);
+    node.max = float3(-1e34f);
 
     for (uint first = node.left_first, i = 0; i < node.count; i++)
     {
         uint idx = indices[first + i];
         Box& leaf = voxel_objects[idx];
-        node.min = fminf(node.min, leaf.min);
-        node.max = fmaxf(node.max, leaf.max);
-        //node.min = fminf(node.min, TransformPosition(leaf.min, leaf.model.matrix()));
-        //node.max = fmaxf(node.max, TransformPosition(leaf.max, leaf.model.matrix()));
+        node.min.x = fminf(node.min.x, leaf.aabb.min.x);
+        node.min.y = fminf(node.min.y, leaf.aabb.min.y);
+        node.min.z = fminf(node.min.z, leaf.aabb.min.z);
+        node.max.x = fmaxf(node.max.x, leaf.aabb.max.x);
+        node.max.y = fmaxf(node.max.y, leaf.aabb.max.y);
+        node.max.z = fmaxf(node.max.z, leaf.aabb.max.z);
     }
 }
 
@@ -37,40 +38,14 @@ void BVH::construct_bvh(Box* voxel_objects)
     // Subdivide Root Node
     root->left_first = 0;
     root->count = N /*N * N * N*/;
-    calculate_bounds(voxel_objects, root->left_first, pool, indices);
-    root->subdivide(root->left_first, voxel_objects, pool, pool_ptr, indices, nodes_used);
+    calculate_bounds(*root, voxel_objects, indices);
+    subdivide(voxel_objects, *root, 0);
 }
 
 void BVH::intersect_voxel(Ray& ray, Box& box)
 {
-//    float3 b[2] = {box.min, box.max};
-//    // test if the ray intersects the box
-//    const int signx = ray.D.x < 0, signy = ray.D.y < 0, signz = ray.D.z < 0;
-//    float tmin = (b[signx].x - ray.O.x) * ray.rD.x;
-//    float tmax = (b[1 - signx].x - ray.O.x) * ray.rD.x;
-//    const float tymin = (b[signy].y - ray.O.y) * ray.rD.y;
-//    const float tymax = (b[1 - signy].y - ray.O.y) * ray.rD.y;
-//    if (tmin > tymax || tymin > tmax)
-//        goto miss;
-//    tmin = max(tmin, tymin), tmax = min(tmax, tymax);
-//    const float tzmin = (b[signz].z - ray.O.z) * ray.rD.z;
-//    const float tzmax = (b[1 - signz].z - ray.O.z) * ray.rD.z;
-//    if (tmin > tzmax || tzmin > tmax)
-//        goto miss;
-//    if ((tmin = max(tmin, tzmin)) > 0)
-//        if (ray.t < tmin)
-//            goto miss;
-//        else
-//        {
-//            //ray.t = tmin;
-//            find_nearest(ray, box);
-//        }
-//
-//miss:
-//    /*ray.t = 1e34f*/ return;
-
     float tmin = 0.0f, tmax = 1e34f;
-    float3 corners[2] = {box.min, box.max};
+    float3 corners[2] = {box.aabb.min, box.aabb.max};
 
     for (int d = 0; d < 3; ++d)
     {
@@ -191,29 +166,14 @@ bool BVH::setup_3ddda(const Ray& ray, DDAState& state, Box& box)
     state.t = 0;
     if (!box.contains(ray.O))
     {
-        state.t = intersect_aabb(ray, box.min, box.max);
+        state.t = intersect_aabb(ray, box.aabb.min, box.aabb.max);
         if (state.t > 1e33f)
             return false; // ray misses voxel data entirely
     }
 
-    // setup amanatides & woo - assume world is 1x1x1, from (0,0,0) to (1,1,1)
-    //const float cellSize = 1.0f / box.size;
-    //state.step = make_int3(1 - ray.Dsign * 2);
-    //const float3 posInGrid = box.size * (ray.O + (state.t + 0.00005f) * ray.D);
-    //const float3 gridPlanes = (ceilf(posInGrid) - ray.Dsign) * cellSize;
-    //const int3 P = clamp(make_int3(posInGrid), 0, box.size - 1);
-    //state.X = P.x, state.Y = P.y, state.Z = P.z;
-    //state.tdelta = cellSize * float3(state.step) * ray.rD;
-    //state.tmax = (gridPlanes - ray.O) * ray.rD;
-    //// proceed with traversal
-    //return true;
-
     // expressed in world space
-    const float3 voxelMinBounds = box.min;
-    const float3 voxelMaxBounds = box.max;
-
-    /*const float3 voxelMinBounds = TransformPosition(box.min, box.model.matrix());
-    const float3 voxelMaxBounds = TransformPosition(box.max, box.model.matrix());*/
+    const float3 voxelMinBounds = box.aabb.min;
+    const float3 voxelMaxBounds = box.aabb.max;
 
     const float gridsizeFloat = static_cast<float>(box.size);
     const float cellSize = 1.0f / gridsizeFloat;
@@ -283,87 +243,196 @@ void BVH::find_nearest(Ray& ray, Box& box)
     ray.Dsign = initial_ray.Dsign;
 }
 
-float evaluate_sah(Box* voxel_objects, uint* indices, BVHNode& node, int axis, float pos)
+float evaluate_sah(Box* voxel_objects, BVHNode& node, int axis, float pos)
 {
-    aabb left_box, right_box;
-    int left_count = 0, right_count = 0;
-    for (uint i = 0; i < node.count; i++)
+    AABB l_aabb, r_aabb;
+    int l_cnt = 0, r_cnt = 0;
+    for (uint i = 0; i < node.count; ++i)
     {
-        Box& box = voxel_objects[indices[node.left_first + i]];
-        if (box.get_center()[axis] < pos)
+        const Box& box = voxel_objects[node.left_first + i];
+        const AABB aabb = box.aabb.get_aabb();
+        if (aabb.get_center()[axis] < pos)
         {
-            left_count++;
-            left_box.Grow(box.max);
-            left_box.Grow(box.min);
+            l_cnt++;
+            l_aabb.grow(aabb.min);
+            l_aabb.grow(aabb.max);
         }
         else
         {
-            right_count++;
-            right_box.Grow(box.max);
-            right_box.Grow(box.min);
+            r_cnt++;
+            r_aabb.grow(aabb.min);
+            r_aabb.grow(aabb.max);
         }
     }
-    float cost = left_count * left_box.Area() + right_count * right_box.Area();
-    return cost > 0 ? cost : 1e34f;
+    float cost = l_cnt * l_aabb.area() + r_cnt * r_aabb.area();
+    return cost > 0.0f ? cost : 1e34f;
 }
 
-void BVHNode::subdivide(uint node_idx, Box* voxel_objects, BVHNode* pool, uint pool_ptr, uint* indices, uint& nodes_used)
+#define SAH_FULL_SWEEP 0
+#define SAH_BINS 1
+struct Bin
 {
-    BVHNode& node = pool[node_idx];
+    AABB aabb;
+    uint count = 0;
+};
 
-    // determine split axis using Surface Area Heuristic
-    int best_axis = -1;
-    float best_pos = 0.0f, best_cost = 1e34f;
-
-    for (int axis = 0; axis < 3; axis++)
+float BVH::find_best_split_plane(Box* voxel_objects, BVHNode& node, int& axis, float& pos) const
+{
+    float best_cost = 1e34f;
+#if SAH_FULL_SWEEP
+    for (int a = 0; a < 3; ++a)
     {
-        for (uint i = 0; i < node.count; i++)
+        for (uint i = 0; i < node.count; ++i)
         {
-            Box& box = voxel_objects[indices[node.left_first + i]];
-            float candidate_pos = box.get_center()[axis];
-            float cost = evaluate_sah(voxel_objects, indices, node, axis, candidate_pos);
+            const Box& box = voxel_objects[node.left_first + i];
+            float candidate_pos = box.aabb.get_center()[a];
+            float cost = evaluate_sah(voxel_objects, node, a, candidate_pos);
             if (cost < best_cost)
-                best_pos = candidate_pos, best_axis = axis, best_cost = cost;
+                pos = candidate_pos, axis = a, best_cost = cost;
         }
     }
-    int axis = best_axis;
-    float split_pos = best_pos;
-    
-    float3 e = node.max - node.min;
-    float parent_area = e.x * e.y + e.y * e.z + e.z * e.x;
-    float parent_cost = node.count * parent_area;
+#elif SAH_BINS
+    constexpr int BINS = 8;
+    for (int a = 0; a < 3; ++a)
+    {
+        /* Get the min and max of all primitives in the node */
+        float bmin = 1e34f, bmax = -1e34f;
+        for (uint i = 0; i < node.count; ++i)
+        {
+            float3 prim_center = voxel_objects[node.left_first + i].aabb.get_center();
+            bmin = fminf(bmin, prim_center[a]);
+            bmax = fmaxf(bmax, prim_center[a]);
+        }
+        if (bmin == bmax)
+            continue;
 
-    if (best_cost >= parent_cost)
-        return;
+        /* Populate the bins */
+        Bin bins[BINS];
+        float scale = BINS / (bmax - bmin);
+        for (uint i = 0; i < node.count; ++i)
+        {
+            const Box& prim = voxel_objects[node.left_first + i];
+            int bin_idx = fminf(BINS - 1, static_cast<int>((prim.aabb.get_center()[a] - bmin) * scale));
+            bins[bin_idx].count++;
+            const AABB prim_bounds = prim.aabb.get_aabb();
+            bins[bin_idx].aabb.grow(prim_bounds.min);
+            bins[bin_idx].aabb.grow(prim_bounds.max);
+        }
 
-    // in-place partition
+        /* Gather data for the planes between the bins */
+        float l_areas[BINS - 1], r_areas[BINS - 1];
+        int l_counts[BINS - 1], r_counts[BINS - 1];
+        AABB l_aabb, r_aabb;
+        int l_sum = 0, r_sum = 0;
+        for (int i = 0; i < BINS - 1; ++i)
+        {
+            /* Left-side */
+            l_sum += bins[i].count;
+            l_counts[i] = l_sum;
+            l_aabb.grow(bins[i].aabb);
+            l_areas[i] = l_aabb.area();
+            /* Right-side */
+            r_sum += bins[BINS - 1 - i].count;
+            r_counts[BINS - 2 - i] = r_sum;
+            r_aabb.grow(bins[BINS - 1 - i].aabb);
+            r_areas[BINS - 2 - i] = r_aabb.area();
+        }
+
+        /* Calculate the SAH cost function for all planes */
+        scale = (bmax - bmin) / BINS;
+        for (int i = 0; i < BINS - 1; ++i)
+        {
+            float plane_cost = l_counts[i] * l_areas[i] + r_counts[i] * r_areas[i];
+            if (plane_cost < best_cost)
+            {
+                axis = a;
+                pos = bmin + scale * (i + 1);
+                best_cost = plane_cost;
+            }
+        }
+    }
+#else
+    /* 8 candidates results in a decent tree */
+    constexpr uint UNIFORM_CANDIDATES = 8;
+    for (int a = 0; a < 3; ++a)
+    {
+        /* Get the min and max of all primitives in the node */
+        float bmin = 1e34f, bmax = -1e34f;
+        for (uint i = 0; i < node.count; ++i)
+        {
+            float3 prim_center = voxel_objects[node.left_first + i].aabb.get_center();
+            bmin = min(bmin, prim_center[a]);
+            bmax = max(bmax, prim_center[a]);
+        }
+        if (bmin == bmax)
+            continue;
+
+        /* Evaluate the SAH of the uniform candidates */
+        float scale = (bmax - bmin) / UNIFORM_CANDIDATES;
+        for (uint i = 1; i < UNIFORM_CANDIDATES; ++i)
+        {
+            float candidatePos = bmin + i * scale;
+            float cost = evaluate_sah(voxel_objects, node, a, candidatePos);
+            if (cost < best_cost)
+                pos = candidatePos, axis = a, best_cost = cost;
+        }
+    }
+#endif
+    return best_cost;
+}
+
+void BVH::subdivide(Box* voxel_objects, BVHNode& node, int id)
+{
+    /*if (node.count <= 2u)
+        return;*/
+
+    /* Determine split based on SAH */
+    int split_axis = -1;
+    float split_t = 0;
+    const float split_cost = find_best_split_plane(voxel_objects, node, split_axis, split_t);
+
+    /* Calculate parent node cost */
+    const float3 e = node.max - node.min;
+    const float parent_area = e.x * e.x + e.y * e.y + e.z * e.z;
+    const float parent_cost = node.count * parent_area;
+    if (split_cost >= parent_cost)
+        return; /* Split would not be worth it */
+
+    /* Determine which primitives lie on which side */
     int i = node.left_first;
     int j = i + node.count - 1;
     while (i <= j)
     {
-        if (voxel_objects[indices[i]].get_center()[axis] < split_pos)
+        if (voxel_objects[i].aabb.get_center()[split_axis] < split_t)
+        {
             i++;
+        }
         else
-            swap(indices[i], indices[j--]);
+        {
+            std::swap(voxel_objects[i], voxel_objects[j--]);
+        }
     }
-    // abort split if one of the sides is empty
-    int leftCount = i - node.left_first;
-    if (leftCount == 0 || leftCount == node.count)
-        return;
-    // create child nodes
-    int leftChildIdx = ++nodes_used;
-    int rightChildIdx = ++nodes_used;
-    pool[leftChildIdx].left_first = node.left_first;
-    pool[leftChildIdx].count = leftCount;
-    pool[rightChildIdx].left_first = i;
-    pool[rightChildIdx].count = node.count - leftCount;
-    node.left_first = leftChildIdx;
-    node.count = 0;
-    calculate_bounds(voxel_objects, leftChildIdx, pool, indices);
-    calculate_bounds(voxel_objects, rightChildIdx, pool, indices);
 
-    subdivide(leftChildIdx, voxel_objects, pool, pool_ptr, indices, nodes_used);
-    subdivide(rightChildIdx, voxel_objects, pool, pool_ptr, indices, nodes_used);
+    const int left_count = i - node.left_first;
+    if (left_count == 0 || left_count == node.count)
+        return;
+
+    /* Initialize child nodes */
+    int left_child_idx = nodes_used++;
+    int right_child_idx = nodes_used++;
+    pool[left_child_idx].left_first = node.left_first;
+    pool[left_child_idx].count = left_count;
+    pool[right_child_idx].left_first = i;
+    pool[right_child_idx].count = node.count - left_count;
+    node.left_first = left_child_idx;
+    node.count = 0;
+
+    calculate_bounds(pool[left_child_idx], voxel_objects, indices);
+    calculate_bounds(pool[right_child_idx], voxel_objects, indices);
+
+    /* Continue subdiving */
+    subdivide(voxel_objects, pool[left_child_idx], id + 1);
+    subdivide(voxel_objects, pool[right_child_idx], id + 1);
 }
 
 void Box::populate_grid()

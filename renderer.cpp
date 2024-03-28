@@ -27,8 +27,8 @@ void Renderer::Init()
     {
         voxel_objects[i].populate_grid();
         voxel_objects[i].model.translation = float3(i, 0.0f, 0.0f);
-        voxel_objects[i].min = TransformPosition(voxel_objects[i].min, voxel_objects[i].model.matrix());
-        voxel_objects[i].max = TransformPosition(voxel_objects[i].max, voxel_objects[i].model.matrix());
+        voxel_objects[i].aabb.min = TransformPosition(voxel_objects[i].aabb.min, voxel_objects[i].model.matrix());
+        voxel_objects[i].aabb.max = TransformPosition(voxel_objects[i].aabb.max, voxel_objects[i].model.matrix());
     }
 
     /*for (int z = 0; z < N; z++)
