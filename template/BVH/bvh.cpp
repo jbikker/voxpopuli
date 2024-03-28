@@ -15,10 +15,10 @@ void calculate_bounds(Box* voxel_objects, uint node_idx, BVHNode* pool, uint* in
     {
         uint idx = indices[first + i];
         Box& leaf = voxel_objects[idx];
-        //node.min = fminf(node.min, leaf.min);
-        //node.max = fmaxf(node.max, leaf.max);
-        node.min = fminf(node.min, TransformPosition(leaf.min, leaf.model.matrix()));
-        node.max = fmaxf(node.max, TransformPosition(leaf.max, leaf.model.matrix()));
+        node.min = fminf(node.min, leaf.min);
+        node.max = fmaxf(node.max, leaf.max);
+        //node.min = fminf(node.min, TransformPosition(leaf.min, leaf.model.matrix()));
+        //node.max = fmaxf(node.max, TransformPosition(leaf.max, leaf.model.matrix()));
     }
 }
 
@@ -43,31 +43,52 @@ void BVH::construct_bvh(Box* voxel_objects)
 
 void BVH::intersect_voxel(Ray& ray, Box& box)
 {
-    float3 b[2] = {box.min, box.max};
-    // test if the ray intersects the box
-    const int signx = ray.D.x < 0, signy = ray.D.y < 0, signz = ray.D.z < 0;
-    float tmin = (b[signx].x - ray.O.x) * ray.rD.x;
-    float tmax = (b[1 - signx].x - ray.O.x) * ray.rD.x;
-    const float tymin = (b[signy].y - ray.O.y) * ray.rD.y;
-    const float tymax = (b[1 - signy].y - ray.O.y) * ray.rD.y;
-    if (tmin > tymax || tymin > tmax)
-        goto miss;
-    tmin = max(tmin, tymin), tmax = min(tmax, tymax);
-    const float tzmin = (b[signz].z - ray.O.z) * ray.rD.z;
-    const float tzmax = (b[1 - signz].z - ray.O.z) * ray.rD.z;
-    if (tmin > tzmax || tzmin > tmax)
-        goto miss;
-    if ((tmin = max(tmin, tzmin)) > 0)
-        if (ray.t < tmin)
-            goto miss;
-        else
-        {
-            //ray.t = tmin;
-            find_nearest(ray, box);
-        }
+//    float3 b[2] = {box.min, box.max};
+//    // test if the ray intersects the box
+//    const int signx = ray.D.x < 0, signy = ray.D.y < 0, signz = ray.D.z < 0;
+//    float tmin = (b[signx].x - ray.O.x) * ray.rD.x;
+//    float tmax = (b[1 - signx].x - ray.O.x) * ray.rD.x;
+//    const float tymin = (b[signy].y - ray.O.y) * ray.rD.y;
+//    const float tymax = (b[1 - signy].y - ray.O.y) * ray.rD.y;
+//    if (tmin > tymax || tymin > tmax)
+//        goto miss;
+//    tmin = max(tmin, tymin), tmax = min(tmax, tymax);
+//    const float tzmin = (b[signz].z - ray.O.z) * ray.rD.z;
+//    const float tzmax = (b[1 - signz].z - ray.O.z) * ray.rD.z;
+//    if (tmin > tzmax || tzmin > tmax)
+//        goto miss;
+//    if ((tmin = max(tmin, tzmin)) > 0)
+//        if (ray.t < tmin)
+//            goto miss;
+//        else
+//        {
+//            //ray.t = tmin;
+//            find_nearest(ray, box);
+//        }
+//
+//miss:
+//    /*ray.t = 1e34f*/ return;
 
-miss:
-    /*ray.t = 1e34f*/ return;
+    float tmin = 0.0f, tmax = 1e34f;
+    float3 corners[2] = {box.min, box.max};
+
+    for (int d = 0; d < 3; ++d)
+    {
+        bool sign = ray.Dsign[d];
+        float bmin = corners[sign][d];
+        float bmax = corners[!sign][d];
+
+        float dmin = (bmin - ray.O[d]) * ray.rD[d];
+        float dmax = (bmax - ray.O[d]) * ray.rD[d];
+
+        tmin = std::max(dmin, tmin);
+        tmax = std::min(dmax, tmax);
+        /* Early out check, saves a lot of compute */
+        if (tmax < tmin)
+            return;
+    }
+
+    find_nearest(ray, box);
 }
 
 void BVH::intersect_bvh(Box* voxel_objects, Ray& ray, const uint node_idx)
@@ -92,6 +113,7 @@ void BVH::intersect_bvh(Box* voxel_objects, Ray& ray, const uint node_idx)
         }
         BVHNode* child1 = &pool[node->left_first];
         BVHNode* child2 = &pool[node->left_first + 1];
+
 #if AMD_CPU
         float dist1 = intersect_aabb(ray, child1->min, child1->max);
         float dist2 = intersect_aabb(ray, child2->min, child2->max);
@@ -99,6 +121,7 @@ void BVH::intersect_bvh(Box* voxel_objects, Ray& ray, const uint node_idx)
         float dist1 = intersect_aabb_sse(ray, child1->min4, child1->max4);
         float dist2 = intersect_aabb_sse(ray, child2->min4, child2->max4);
 #endif
+
         if (dist1 > dist2)
         {
             swap(dist1, dist2);
@@ -189,6 +212,9 @@ bool BVH::setup_3ddda(const Ray& ray, DDAState& state, Box& box)
     const float3 voxelMinBounds = box.min;
     const float3 voxelMaxBounds = box.max;
 
+    /*const float3 voxelMinBounds = TransformPosition(box.min, box.model.matrix());
+    const float3 voxelMaxBounds = TransformPosition(box.max, box.model.matrix());*/
+
     const float gridsizeFloat = static_cast<float>(box.size);
     const float cellSize = 1.0f / gridsizeFloat;
     state.step = make_int3(1 - ray.Dsign * 2);
@@ -219,7 +245,10 @@ void BVH::find_nearest(Ray& ray, Box& box)
     // Setup Amanatides & Woo Grid Traversal
 	DDAState s;
     if (!setup_3ddda(ray, s, box))
+    {
         return;
+    }
+
 	// Start Stepping
 	while (s.t <= ray.t)
 	{
@@ -246,7 +275,8 @@ void BVH::find_nearest(Ray& ray, Box& box)
 			else { s.t = s.tmax.z, s.Z += s.step.z; if (s.Z >= box.size) break; s.tmax.z += s.tdelta.z; }
 		}  
 	}
-    // Restore the Original Ray's Transform
+
+    // Restore the original ray's transform
     ray.O = initial_ray.O;
     ray.D = initial_ray.D;
     ray.rD = initial_ray.rD;
@@ -321,8 +351,8 @@ void BVHNode::subdivide(uint node_idx, Box* voxel_objects, BVHNode* pool, uint p
     if (leftCount == 0 || leftCount == node.count)
         return;
     // create child nodes
-    int leftChildIdx = nodes_used++;
-    int rightChildIdx = nodes_used++;
+    int leftChildIdx = ++nodes_used;
+    int rightChildIdx = ++nodes_used;
     pool[leftChildIdx].left_first = node.left_first;
     pool[leftChildIdx].count = leftCount;
     pool[rightChildIdx].left_first = i;

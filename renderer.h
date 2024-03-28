@@ -24,7 +24,7 @@ public:
             return;
 
 		Ray ray = camera.GetPrimaryRay(float(mousePos.x), float(mousePos.y));
-        bvh.intersect_bvh(voxel_objects, ray, 0);
+	    bvh.intersect_bvh(voxel_objects, ray, 0);
 
 	}
 	void MouseMove( int x, int y ) { mousePos.x = x, mousePos.y = y; }
