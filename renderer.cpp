@@ -20,13 +20,18 @@ void Renderer::Init()
 
     voxel_objects = new Box[N];
     float3 pos = RandomFloat();
-
+    voxel_objects[0].aabb.min = 0.0f;
+    voxel_objects[0].aabb.max = 1.0f;
     voxel_objects[0].populate_grid();
+    //voxel_objects[0].model.rotation = float3(0.15f, 0.0f, 0.0f);
 
     for (int i = 1; i < N; i++)
     {
         voxel_objects[i].populate_grid();
-        voxel_objects[i].model.translation = float3(i, 0.0f, 0.0f);
+        voxel_objects[i].model.translation = pos * i * 10.0f;
+        voxel_objects[i].model.rotation = float3(0.0f, 0.0f, 0.0f);
+        voxel_objects[i].aabb.min = 0.0f;
+        voxel_objects[i].aabb.max = 1.0f;
         voxel_objects[i].aabb.min = TransformPosition(voxel_objects[i].aabb.min, voxel_objects[i].model.matrix());
         voxel_objects[i].aabb.max = TransformPosition(voxel_objects[i].aabb.max, voxel_objects[i].model.matrix());
     }
@@ -37,8 +42,8 @@ void Renderer::Init()
         {
             for (int x = 0; x < N; x++)
             {
-                voxel_objects[x + y * N + z * N * N].min = float3(x * 2.0f, y * 2.0f, z * 2.0f);
-                voxel_objects[x + y * N + z * N * N].max = voxel_objects[x + y * N + z * N * N].min + 1.0f;
+                voxel_objects[x + y * N + z * N * N].aabb.min = pos * 2.0f;
+                voxel_objects[x + y * N + z * N * N].aabb.max = voxel_objects[x + y * N + z * N * N].aabb.min + 1.0f;
                 voxel_objects[x + y * N + z * N * N].populate_grid();
             }
         }

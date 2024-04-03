@@ -4,8 +4,8 @@ constexpr int N = 4; // Amount of Voxel Models in the game
 
 struct alignas(32) AABB
 {
-    float3 min = 0.0f;
-    float3 max = 1.0f;
+    float3 min = 1e34f;
+    float3 max = -1e34f;
 
     AABB get_aabb() const { return *this; }
     float3 get_center() const { return min + (max - min) * 0.5f; }

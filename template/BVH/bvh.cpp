@@ -64,6 +64,7 @@ void BVH::intersect_voxel(Ray& ray, Box& box)
     }
 
     find_nearest(ray, box);
+    //ray.t = tmin;
 }
 
 void BVH::intersect_bvh(Box* voxel_objects, Ray& ray, const uint node_idx)
@@ -170,21 +171,18 @@ bool BVH::setup_3ddda(const Ray& ray, DDAState& state, Box& box)
         if (state.t > 1e33f)
             return false; // ray misses voxel data entirely
     }
-
-    // expressed in world space
+    // setup amanatides & woo - assume world is 1x1x1, from (0,0,0) to (1,1,1)
     const float3 voxelMinBounds = box.aabb.min;
-    const float3 voxelMaxBounds = box.aabb.max;
-
-    const float gridsizeFloat = static_cast<float>(box.size);
-    const float cellSize = 1.0f / gridsizeFloat;
+    const float3 voxelMaxBounds = box.aabb.max - box.aabb.min;
+    static const float cellSize = 1.0f / box.size;
     state.step = make_int3(1 - ray.Dsign * 2);
-    // based on our cube position
-    const float3 posInGrid = gridsizeFloat * ((ray.O - voxelMinBounds) + (state.t + 0.00005f) * ray.D) / voxelMaxBounds;
+    const float3 posInGrid = box.size * ((ray.O - voxelMinBounds) + (state.t + 0.00005f) * ray.D) / voxelMaxBounds;
     const float3 gridPlanes = (ceilf(posInGrid) - ray.Dsign) * cellSize;
     const int3 P = clamp(make_int3(posInGrid), 0, box.size - 1);
     state.X = P.x, state.Y = P.y, state.Z = P.z;
     state.tdelta = cellSize * float3(state.step) * ray.rD;
     state.tmax = ((gridPlanes * voxelMaxBounds) - (ray.O - voxelMinBounds)) * ray.rD;
+    // proceed with traversal
     return true;
 }
 
@@ -196,18 +194,18 @@ void BVH::find_nearest(Ray& ray, Box& box)
     mat4 model_mat = box.model.matrix();
     mat4 inv_model_mat = model_mat.Inverted();
 
-    // Transform the Ray
-    ray.O = TransformPosition(ray.O, inv_model_mat);
-    ray.D = TransformVector(ray.D, inv_model_mat);
-    ray.rD = float3(1.0f / ray.D.x, 1.0f / ray.D.y, 1.0f / ray.D.z);
-    ray.CalculateDsign();
-
     // Setup Amanatides & Woo Grid Traversal
 	DDAState s;
     if (!setup_3ddda(ray, s, box))
     {
         return;
     }
+
+    // Transform the Ray
+    ray.O = TransformPosition(ray.O, inv_model_mat);
+    ray.D = TransformVector(ray.D, inv_model_mat);
+    ray.rD = float3(1.0f / ray.D.x, 1.0f / ray.D.y, 1.0f / ray.D.z);
+    ray.CalculateDsign();
 
 	// Start Stepping
 	while (s.t <= ray.t)
@@ -235,7 +233,6 @@ void BVH::find_nearest(Ray& ray, Box& box)
 			else { s.t = s.tmax.z, s.Z += s.step.z; if (s.Z >= box.size) break; s.tmax.z += s.tdelta.z; }
 		}  
 	}
-
     // Restore the original ray's transform
     ray.O = initial_ray.O;
     ray.D = initial_ray.D;
@@ -268,8 +265,8 @@ float evaluate_sah(Box* voxel_objects, BVHNode& node, int axis, float pos)
     return cost > 0.0f ? cost : 1e34f;
 }
 
-#define SAH_FULL_SWEEP 0
-#define SAH_BINS 1
+#define SAH_FULL_SWEEP 1
+#define SAH_BINS 0
 struct Bin
 {
     AABB aabb;
