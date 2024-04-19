@@ -28,7 +28,7 @@ Camera::~Camera()
 	fclose( f );
 }
 
-Ray Camera::GetPrimaryRay( const int x, const int y )
+Ray Camera::GetPrimaryRay( const float x, const float y )
 {
 	// calculate pixel position on virtual screen plane
 	const float u = (float)x * (1.0f / SCRWIDTH);
@@ -41,10 +41,11 @@ Ray Camera::GetPrimaryRay( const int x, const int y )
 	// - if we have other primitives as well, we *do* need to normalize!
 	// - there are far cooler camera models, e.g. try 'Panini projection'.
 }
+
 bool Camera::HandleInput( const float t )
 {
 	if (!WindowHasFocus()) return false;
-	float speed = 0.0025f * t;
+	float speed = 0.0015f * t;
 	float3 ahead = normalize( camTarget - camPos );
 	float3 tmpUp( 0, 1, 0 );
 	float3 right = normalize( cross( tmpUp, ahead ) );

@@ -27,7 +27,7 @@ void Renderer::Tick( float deltaTime )
 		// trace a primary ray for each pixel on the line
 		for (int x = 0; x < SCRWIDTH; x++)
 		{
-			Ray r = camera.GetPrimaryRay( x, y );
+			Ray r = camera.GetPrimaryRay( (float)x, (float)y );
 			float3 pixel = Trace( r );
 			screen->pixels[x + y * SCRWIDTH] = RGBF32_to_RGB8( pixel );
 		}
@@ -48,7 +48,7 @@ void Renderer::Tick( float deltaTime )
 void Renderer::UI()
 {
 	// ray query on mouse
-	Ray r = camera.GetPrimaryRay( mousePos.x, mousePos.y );
+	Ray r = camera.GetPrimaryRay( (float)mousePos.x, (float)mousePos.y );
 	scene.FindNearest( r );
 	ImGui::Text( "voxel: %i", r.voxel );
 }

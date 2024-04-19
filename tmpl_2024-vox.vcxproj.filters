@@ -90,8 +90,8 @@
     <ClInclude Include="template\tmpl8math.h">
       <Filter>template</Filter>
     </ClInclude>
-    <ClInclude Include="template\camera.h" />
     <ClInclude Include="ray.h" />
+    <ClInclude Include="camera.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="template">
