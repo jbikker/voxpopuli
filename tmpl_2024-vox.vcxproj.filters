@@ -14,9 +14,6 @@
     <ClCompile Include="template\template.cpp">
       <Filter>template</Filter>
     </ClCompile>
-    <ClCompile Include="template\tmplmath.cpp">
-      <Filter>template</Filter>
-    </ClCompile>
     <ClCompile Include="lib\imgui\imgui.cpp">
       <Filter>template\imgui</Filter>
     </ClCompile>
@@ -38,15 +35,15 @@
     <ClCompile Include="lib\imgui\imgui_widgets.cpp">
       <Filter>template\imgui</Filter>
     </ClCompile>
-    <ClCompile Include="template\scene.cpp">
+    <ClCompile Include="template\scene.cpp" />
+    <ClCompile Include="template\tmpl8math.cpp">
       <Filter>template</Filter>
     </ClCompile>
+    <ClCompile Include="camera.cpp" />
+    <ClCompile Include="ray.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="renderer.h" />
-    <ClInclude Include="template\camera.h">
-      <Filter>template</Filter>
-    </ClInclude>
     <ClInclude Include="template\common.h">
       <Filter>template</Filter>
     </ClInclude>
@@ -56,16 +53,10 @@
     <ClInclude Include="template\opengl.h">
       <Filter>template</Filter>
     </ClInclude>
-    <ClInclude Include="template\precomp.h">
-      <Filter>template</Filter>
-    </ClInclude>
-    <ClInclude Include="template\scene.h">
+    <ClInclude Include="template\template.h">
       <Filter>template</Filter>
     </ClInclude>
     <ClInclude Include="template\surface.h">
-      <Filter>template</Filter>
-    </ClInclude>
-    <ClInclude Include="template\tmplmath.h">
       <Filter>template</Filter>
     </ClInclude>
     <ClInclude Include="lib\imgui\imstb_truetype.h">
@@ -95,6 +86,12 @@
     <ClInclude Include="lib\imgui\imconfig.h">
       <Filter>template\imgui</Filter>
     </ClInclude>
+    <ClInclude Include="template\scene.h" />
+    <ClInclude Include="template\tmpl8math.h">
+      <Filter>template</Filter>
+    </ClInclude>
+    <ClInclude Include="template\camera.h" />
+    <ClInclude Include="ray.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="template">

@@ -49,7 +49,7 @@
     <ClCompile>
       <AdditionalIncludeDirectories>template;.;lib;lib\imgui;lib\glad;lib\glfw\include;lib\OpenCL\inc;lib\zlib</AdditionalIncludeDirectories>
       <PrecompiledHeader>Use</PrecompiledHeader>
-      <PrecompiledHeaderFile>precomp.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderFile>template.h</PrecompiledHeaderFile>
       <WarningLevel>Level3</WarningLevel>
       <ExceptionHandling>Sync</ExceptionHandling>
     </ClCompile>
@@ -157,13 +157,16 @@
     <ClInclude Include="template\common.h" />
     <ClInclude Include="template\opencl.h" />
     <ClInclude Include="template\opengl.h" />
-    <ClInclude Include="template\precomp.h" />
+    <ClInclude Include="template\template.h" />
     <ClInclude Include="template\scene.h" />
     <ClInclude Include="template\surface.h" />
     <ClInclude Include="template\tmpl8math.h" />
     <ClInclude Include="renderer.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="camera.cpp" />
+    <ClCompile Include="ray.cpp" />
+    <ClInclude Include="ray.h" />
     <None Include="template\LICENSE" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

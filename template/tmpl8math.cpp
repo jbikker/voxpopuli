@@ -5,7 +5,7 @@
 // In this file: implementation of various functions of the template
 // math library defined in tmpl8math.h.
 
-#include "precomp.h"
+#include "template.h"
 
 // random number generator - Marsaglia's xor32
 // This is a high-quality RNG that uses a single 32-bit seed. More info:
@@ -66,7 +66,7 @@ static int primes[10][3] = {
 };
 static float Noise( const int i, const int x, const int y )
 {
-	int n = x + y * 57;
+	int n = x + y * 37;
 	n = (n << 13) ^ n;
 	const int a = primes[i][0], b = primes[i][1], c = primes[i][2];
 	const int t = (n * (n * n * a + b) + c) & 0x7fffffff;

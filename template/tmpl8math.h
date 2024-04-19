@@ -142,6 +142,10 @@ inline float fminf( const float a, const float b ) { return a < b ? a : b; }
 inline float fmaxf( const float a, const float b ) { return a > b ? a : b; }
 inline float rsqrtf( const float x ) { return 1.0f / sqrtf( x ); }
 inline constexpr float sqrf( const float x ) { return x * x; }
+inline constexpr float pow2f( const float x ) { return x * x; }
+inline constexpr float pow3f( const float x ) { return x * x * x; }
+inline constexpr float pow4f( const float x ) { return x * x * x * x; }
+inline constexpr float pow5f( const float x ) { return x * x * x * x * x; }
 inline constexpr int sqr( int x ) { return x * x; }
 inline float3 expf( const float3& a ) { return float3( expf( a.x ), expf( a.y ), expf( a.z ) ); }
 

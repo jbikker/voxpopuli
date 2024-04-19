@@ -7,7 +7,6 @@
 #include <vector>
 #include <list>
 #include <string>
-#include <thread>
 #include <math.h>
 #include <algorithm>
 #include <assert.h>
@@ -155,49 +154,6 @@ struct Timer
 	chrono::high_resolution_clock::time_point start;
 };
 
-// Nils's jobmanager
-class Job
-{
-public:
-	virtual void Main() = 0;
-protected:
-	friend class JobThread;
-	void RunCodeWrapper();
-};
-class JobThread
-{
-public:
-	void CreateAndStartThread( unsigned int threadId );
-	void Go();
-	void BackgroundTask();
-	HANDLE m_GoSignal, m_ThreadHandle;
-	int m_ThreadID;
-};
-class JobManager	// singleton class!
-{
-protected:
-	JobManager( unsigned int numThreads );
-public:
-	~JobManager();
-	static void CreateJobManager( unsigned int numThreads );
-	static JobManager* GetJobManager();
-	static void GetProcessorCount( uint& cores, uint& logical );
-	void AddJob2( Job* a_Job );
-	unsigned int GetNumThreads() { return m_NumThreads; }
-	void RunJobs();
-	void ThreadDone( unsigned int n );
-	int MaxConcurrent() { return m_NumThreads; }
-protected:
-	friend class JobThread;
-	Job* GetNextJob();
-	static JobManager* m_JobManager;
-	Job* m_JobList[4096];
-	CRITICAL_SECTION m_CS;
-	HANDLE m_ThreadDone[64];
-	unsigned int m_NumThreads, m_JobCount;
-	JobThread* m_JobThreadList;
-};
-
 // forward declaration of helper functions
 void FatalError( const char* fmt, ... );
 bool FileIsNewer( const char* file1, const char* file2 );
@@ -321,39 +277,38 @@ public:
 };
 
 // helper function for conversion of f32 colors to int
-inline uint RGBF32_to_RGB8( const float4* v )
+inline uint RGBF32_to_RGB8( const float3& v )
 {
-#ifdef _MSC_VER_
-	// based on https://stackoverflow.com/q/29856006
-	static __m128 s4 = _mm_set1_ps( 255.0f );
-	__m128 a = _mm_load_ps( (const float*)v );
-	a = _mm_shuffle_ps( a, a, _MM_SHUFFLE( 3, 0, 1, 2 ) );
-	__m128i b = _mm_cvtps_epi32( _mm_mul_ps( a, s4 ) );
-	b = _mm_packus_epi32( b, b );
-	return _mm_cvtsi128_si32( _mm_packus_epi16( b, b ) );
-#else
-	uint r = (uint)(255.0f * min( 1.0f, v->x ));
-	uint g = (uint)(255.0f * min( 1.0f, v->y ));
-	uint b = (uint)(255.0f * min( 1.0f, v->z ));
+	uint r = (uint)(255.0f * min( 1.0f, v.x ));
+	uint g = (uint)(255.0f * min( 1.0f, v.y ));
+	uint b = (uint)(255.0f * min( 1.0f, v.z ));
 	return (r << 16) + (g << 8) + b;
-#endif
+}
+
+// helper function for conversion of int to f32 colors
+inline float3 RGB8_to_RGBF32( const uint v )
+{
+	float r = ((v >> 16) & 255) * (1.0f / 255.0f);
+	float g = ((v >> 8) & 255) * (1.0f / 255.0f);
+	float b = (v & 255) * (1.0f / 255.0f);
+	return float3( r, g, b );
 }
 
 // application base class
 class TheApp
 {
 public:
+	virtual ~TheApp() {}
 	virtual void Init() { /* defined empty so we can omit it from the renderer */ }
 	virtual void Tick( float deltaTime ) = 0;
 	virtual void UI() { uiUpdated = false; }
 	virtual void Shutdown() { /* defined empty so we can omit it from the renderer */ }
-	virtual void MouseUp( int button ) { /* defined empty so we can omit it from the renderer */ }
-	virtual void MouseDown( int button ) { /* defined empty so we can omit it from the renderer */ }
-	virtual void MouseMove( int x, int y ) { /* defined empty so we can omit it from the renderer */ }
-	virtual void MouseWheel( float y ) { /* defined empty so we can omit it from the renderer */ }
-	virtual void KeyUp( int key ) { /* defined empty so we can omit it from the renderer */ }
-	virtual void KeyDown( int key ) { /* defined empty so we can omit it from the renderer */ }
-	static inline JobManager* jm = JobManager::GetJobManager();
+	virtual void MouseUp( int ) { /* defined empty so we can omit it from the renderer */ }
+	virtual void MouseDown( int ) { /* defined empty so we can omit it from the renderer */ }
+	virtual void MouseMove( int, int ) { /* defined empty so we can omit it from the renderer */ }
+	virtual void MouseWheel( float ) { /* defined empty so we can omit it from the renderer */ }
+	virtual void KeyUp( int ) { /* defined empty so we can omit it from the renderer */ }
+	virtual void KeyDown( int ) { /* defined empty so we can omit it from the renderer */ }
 	Surface* screen = 0;
 	bool uiUpdated;
 	uint end_of_base_class = 99999;
@@ -366,6 +321,7 @@ public:
 	void Tick() {}
 };
 
+#include "ray.h"
 #include "scene.h"
 #include "camera.h"
 #include "renderer.h"
