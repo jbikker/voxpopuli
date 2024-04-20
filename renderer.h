@@ -7,7 +7,7 @@ class Renderer : public TheApp
 {
 public:
 	// game flow methods
-	void Init() { /* nothing here for now */ }
+	void Init();
 	float3 Trace( Ray& ray, int depth = 0 );
 	void Tick( float deltaTime );
 	void UI();

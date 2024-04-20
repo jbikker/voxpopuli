@@ -14,7 +14,14 @@ float3 Renderer::Trace( Ray& ray, int depth /* we'll use this later */ )
 }
 
 // -----------------------------------------------------------
-// Main application tick function - Executed once per frame
+// Application initialization - Executed once, at app start
+// -----------------------------------------------------------
+void Renderer::Init()
+{
+}
+
+// -----------------------------------------------------------
+// Main application tick function - Executed every frame
 // -----------------------------------------------------------
 void Renderer::Tick( float deltaTime )
 {
