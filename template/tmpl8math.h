@@ -136,6 +136,7 @@ uint RandomUInt( uint& seed );
 float RandomFloat();
 float RandomFloat( uint& seed );
 float Rand( float range );
+uint WangHash( uint s );
 
 // math
 inline float fminf( const float a, const float b ) { return a < b ? a : b; }
