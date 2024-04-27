@@ -3,7 +3,7 @@
 // -----------------------------------------------------------
 // Calculate light transport via a ray
 // -----------------------------------------------------------
-float3 Renderer::Trace( Ray& ray, int depth /* we'll use this later */ )
+float3 Renderer::Trace( Ray& ray, int, int, int /* we'll use these later */ )
 {
 	scene.FindNearest( ray );
 	if (ray.voxel == 0) return float3( 0 ); // or a fancy sky color
