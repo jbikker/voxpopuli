@@ -134,7 +134,7 @@
     <ClCompile Include="lib\imgui\imgui_widgets.cpp" />
     <ClCompile Include="template\opencl.cpp" />
     <ClCompile Include="template\opengl.cpp" />
-    <ClCompile Include="template\scene.cpp" />
+    <ClCompile Include="scene.cpp" />
     <ClCompile Include="template\surface.cpp" />
     <ClCompile Include="template\template.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
@@ -158,7 +158,7 @@
     <ClInclude Include="template\opencl.h" />
     <ClInclude Include="template\opengl.h" />
     <ClInclude Include="template\template.h" />
-    <ClInclude Include="template\scene.h" />
+    <ClInclude Include="scene.h" />
     <ClInclude Include="template\surface.h" />
     <ClInclude Include="template\tmpl8math.h" />
     <ClInclude Include="renderer.h" />
