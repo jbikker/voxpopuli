@@ -21,7 +21,8 @@ public:
 	void KeyDown( int key ) { key = 0; /* implement if you want to handle keys */ }
 	// data members
 	int2 mousePos;
-	float3* accumulator;
+	float3* accumulator;	// for episode 3
+	float3* history;		// for episode 5
 	Scene scene;
 	Camera camera;
 };
