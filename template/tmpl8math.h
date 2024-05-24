@@ -560,15 +560,24 @@ inline float4 fma( const  float4 a, const  float4 b, const float4 c ) { return f
 
 inline float3 cross( const float3& a, const float3& b ) { return make_float3( a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x ); }
 
-inline float3 diffusereflection( const float3 N, uint& seed )
+inline float3 diffuseReflection( const float3 N, uint& seed )
 {
 	float3 R;
 	do
 	{
 		R = make_float3( RandomFloat( seed ) * 2 - 1, RandomFloat( seed ) * 2 - 1, RandomFloat( seed ) * 2 - 1 );
 	} while (dot( R, R ) > 1);
-	if (dot( R, N ) < 0) R *= -1.0f;
-	return normalize( R );
+	return normalize( dot( R, N ) < 0 ? -R : R );
+}
+
+inline float3 diffuseReflection( const float3& N )
+{
+	float3 R;
+	do
+	{
+		R = make_float3( RandomFloat(), RandomFloat(), RandomFloat() ) * 2 - 1;
+	} while (dot( R, R ) > 1);
+	return normalize( dot( R, N ) < 0 ? -R : R );
 }
 
 inline float3 cosineweighteddiffusereflection( const float3 N, const float r0, const float r1 )
