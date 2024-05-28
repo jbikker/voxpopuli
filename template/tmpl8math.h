@@ -601,6 +601,17 @@ inline float3 cosineweighteddiffusereflection( const float3 N, uint& seed )
 	return normalize( N + normalize( R ) );
 }
 
+inline float3 cosweightedDiffuseReflection( const float3 N )
+{
+	// blog.demofox.org/2020/06/06/casual-shadertoy-path-tracing-2-image-improvement-and-glossy-reflections
+	float3 R;
+	do
+	{
+		R = make_float3( RandomFloat(), RandomFloat(), RandomFloat() ) * 2 - 1;
+	} while (dot( R, R ) > 1);
+	return normalize( N + normalize( R ) );
+}
+
 // matrix classes
 class mat2
 {
