@@ -15,7 +15,14 @@ public:
 	// input handling
 	void MouseUp( int button ) { button = 0; /* implement if you want to detect mouse button presses */ }
 	void MouseDown( int button ) { button = 0; /* implement if you want to detect mouse button presses */ }
-	void MouseMove( int x, int y ) { mousePos.x = x, mousePos.y = y; }
+	void MouseMove( int x, int y )
+	{
+	#ifdef DOUBLESIZE
+		mousePos.x = x / 2, mousePos.y = y / 2;
+	#else
+		mousePos.x = x, mousePos.y = y;
+	#endif
+	}
 	void MouseWheel( float y ) { y = 0; /* implement if you want to handle the mouse wheel */ }
 	void KeyUp( int key ) { key = 0; /* implement if you want to handle keys */ }
 	void KeyDown( int key ) { key = 0; /* implement if you want to handle keys */ }
