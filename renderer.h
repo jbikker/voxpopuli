@@ -17,7 +17,7 @@ public:
 	void MouseDown( int button ) { button = 0; /* implement if you want to detect mouse button presses */ }
 	void MouseMove( int x, int y )
 	{
-	#ifdef DOUBLESIZE
+	#if defined(DOUBLESIZE) && !defined(FULLSCREEN)
 		mousePos.x = x / 2, mousePos.y = y / 2;
 	#else
 		mousePos.x = x, mousePos.y = y;
